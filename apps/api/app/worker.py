@@ -29,7 +29,7 @@ from app.modules.ingestion.module import build_ingestion_pipeline
 from app.modules.vector_store.application.ports.sparse_encoder import SparseEncoderPort
 from app.modules.vector_store.module import build_sparse_encoder, build_vector_store
 from app.shared.context import bind_job_id, reset_job_id
-from app.shared.errors import AppError, JobNotFoundError
+from app.shared.errors import AppError, IngestionCancelledError, JobNotFoundError
 from app.shared.logging import get_logger
 
 settings = get_settings()
@@ -90,6 +90,8 @@ def ingest_document(self: Task, job_id: str, document_id: str) -> None:
     except SoftTimeLimitExceeded:
         _mark_failed(job_id, "La ingesta excedió el tiempo máximo permitido")
         logger.warning("ingestion.soft_timeout", job_id=job_id)
+    except IngestionCancelledError:
+        logger.info("ingestion.cancelled", job_id=job_id)
     except AppError as exc:
         if exc.retryable and self.request.retries < settings.ingestion_max_retries:
             countdown = _backoff(self.request.retries)

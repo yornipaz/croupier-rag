@@ -77,7 +77,8 @@ services:
         "app.worker",
         "worker",
         "--loglevel=INFO",
-        "--concurrency=2",
+        "--concurrency=1",
+        "--prefetch-multiplier=1",
       ]
     env_file:
       - path: .env

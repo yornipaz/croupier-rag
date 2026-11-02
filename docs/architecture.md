@@ -47,7 +47,7 @@ Navegador
                       ├─ FastEmbed: embeddings locales
                       └─ DeepSeek API: respuesta del chat
 
-api ──► Redis ──► worker (Celery, 2 procesos)
+api ──► Redis ──► worker (Celery, 1 proceso CPU-bound)
 worker ──► data/, FastEmbed, Qdrant
 worker ──► Redis: estado/progreso
 ```
@@ -148,6 +148,9 @@ puede reconectar y recibe el estado actual al abrir el stream.
 
 - El worker precarga y reutiliza el modelo FastEmbed por proceso. El modelo se cachea en
   `/data/cache/fastembed`; no requiere API key.
+- El progreso de embeddings se publica **por lote** (65 → 85), no solo al terminar la etapa.
+- Si el job o el documento se eliminan durante la ingesta, el worker cancela el trabajo en el
+  siguiente lote en vez de dejar una tarea huérfana bloqueando la cola.
 - `EMBEDDING_TIMEOUT_S=90` es el límite **por lote**, no por documento. Un manual de 98 páginas
   puede tardar varios minutos en CPU.
 - Si un error es retryable, Celery reintenta con backoff. Si no, el job termina en `FAILED` con
@@ -251,7 +254,7 @@ docker compose up -d --force-recreate api
 | `MAX_UPLOAD_MB` | `50` | Validación de subida |
 | `LLM_TIMEOUT_S` | `60` | Por intento |
 | `HTTP_MAX_RETRIES` | `3` | Retry de adapters |
-| `INGESTION_SOFT_TIME_LIMIT_S` | `600` | Límite Celery |
+| `INGESTION_SOFT_TIME_LIMIT_S` | `1800` | Límite Celery para manuales grandes |
 
 ## Resiliencia y observabilidad
 

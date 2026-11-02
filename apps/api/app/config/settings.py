@@ -115,8 +115,8 @@ class Settings(BaseSettings):
     ingestion_max_retries: int = Field(default=3, ge=0, le=10)
     ingestion_retry_base_s: float = Field(default=2.0, gt=0)
     ingestion_retry_max_s: float = Field(default=60.0, gt=0)
-    ingestion_soft_time_limit_s: int = Field(default=600, ge=30)
-    ingestion_time_limit_s: int = Field(default=660, ge=30)
+    ingestion_soft_time_limit_s: int = Field(default=1800, ge=30)
+    ingestion_time_limit_s: int = Field(default=1860, ge=30)
 
     @field_validator("env")
     @classmethod

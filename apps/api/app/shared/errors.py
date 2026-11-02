@@ -47,6 +47,13 @@ class JobNotFoundError(NotFoundError):
     code = "job_not_found"
 
 
+class IngestionCancelledError(AppError):
+    """The document/job disappeared while background ingestion was running."""
+
+    code = "ingestion_cancelled"
+    http_status = 409
+
+
 class ConflictError(AppError):
     code = "conflict"
     http_status = 409

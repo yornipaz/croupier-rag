@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -22,7 +23,7 @@ from app.modules.vector_store.application.dto.embedded import EmbeddedChunk
 from app.modules.vector_store.application.ports.sparse_encoder import SparseEncoderPort
 from app.modules.vector_store.application.ports.vector_store import VectorStorePort
 from app.shared.chunks import Chunk
-from app.shared.errors import AppError, UpstreamError
+from app.shared.errors import AppError, IngestionCancelledError, UpstreamError
 from app.shared.jobs import Job, JobStatus
 from app.shared.logging import get_logger
 
@@ -113,13 +114,32 @@ class EmbedStage:
         self._embedding = embedding
         self._sparse_encoder = sparse_encoder
         self._batch_size = batch_size
+        self._progress: Callable[[int], Awaitable[None]] | None = None
+        self._is_active: Callable[[], Awaitable[bool]] | None = None
+
+    def set_activity_check(
+        self,
+        check: Callable[[], Awaitable[bool]],
+    ) -> None:
+        self._is_active = check
+
+    def set_progress_reporter(
+        self,
+        reporter: Callable[[int], Awaitable[None]],
+    ) -> None:
+        self._progress = reporter
 
     async def run(self, context: IngestionContext) -> IngestionContext:
         warmup = getattr(self._embedding, "warmup", None)
         if callable(warmup):
             await warmup()
         embedded: list[EmbeddedChunk] = []
-        for start in range(0, len(context.chunks), self._batch_size):
+        total = len(context.chunks)
+        for start in range(0, total, self._batch_size):
+            if self._is_active is not None and not await self._is_active():
+                raise IngestionCancelledError(
+                    "The document or job was deleted during ingestion"
+                )
             batch = context.chunks[start : start + self._batch_size]
             texts = [chunk.text for chunk in batch]
             dense_vectors = await self._embedding.embed(texts)
@@ -147,6 +167,18 @@ class EmbedStage:
                         sparse=sparse,
                     )
                 )
+            processed = min(start + len(batch), total)
+            progress = self.start_progress + round(
+                (processed / total) * (self.end_progress - self.start_progress)
+            )
+            logger.info(
+                "ingestion.embed_progress",
+                batch=processed,
+                total=total,
+                progress=progress,
+            )
+            if self._progress is not None:
+                await self._progress(progress)
         context.embedded = embedded
         return context
 
@@ -183,6 +215,31 @@ class IngestionPipeline:
         self._jobs = jobs
         self._events = events
         self._stages = stages
+        self._current_job: Job | None = None
+        for stage in stages:
+            if isinstance(stage, EmbedStage):
+                stage.set_progress_reporter(self._report_embed_progress)
+                stage.set_activity_check(self._is_active)
+
+    async def _is_active(self) -> bool:
+        if self._current_job is None:
+            return False
+        try:
+            await self._jobs.get(self._current_job.job_id)
+            await self._documents.get(self._current_job.doc_id)
+        except AppError:
+            return False
+        return True
+
+    async def _report_embed_progress(self, progress: int) -> None:
+        if self._current_job is None:
+            return
+        self._current_job = await self._report(
+            self._current_job,
+            "PROCESSING",
+            "embed",
+            progress,
+        )
 
     async def run(self, job_id: str, document_id: str) -> None:
         job = await self._jobs.get(job_id)
@@ -224,6 +281,9 @@ class IngestionPipeline:
                 )
             )
             await self._report(job, "COMPLETED", "completed", 100)
+        except IngestionCancelledError:
+            logger.info("ingestion.cancelled", job_id=job_id)
+            raise
         except Exception as exc:
             if job is not None:
                 message = _error_message(current_stage, exc)
@@ -249,6 +309,7 @@ class IngestionPipeline:
             error=error,
             updated_at=datetime.now(UTC),
         )
+        self._current_job = updated
         await self._jobs.save(updated)
         try:
             await self._events.publish(updated)
