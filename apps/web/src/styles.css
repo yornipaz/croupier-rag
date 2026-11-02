@@ -1,0 +1,324 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light;
+  --canvas: #f4efe6;
+  --canvas-strong: #ece3d5;
+  --surface: #fbf8f2;
+  --surface-2: #f0e8da;
+  --ink: #1e2923;
+  --muted: #667168;
+  --line: #d9cfbf;
+  --accent: #8a6a2f;
+  --accent-strong: #6f5324;
+  --accent-soft: #e8d9bb;
+  --felt: #ece3d5;
+  --gold: #b68a3e;
+  --danger: #a8442a;
+  --success: #3f6b50;
+  --shadow-color: 30 40 28;
+  --font-title: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-body: 'Manrope', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.dark {
+  color-scheme: dark;
+  --canvas: #07130d;
+  --canvas-strong: #0a1a12;
+  --surface: #0c1b14;
+  --surface-2: #11261b;
+  --ink: #f1eadc;
+  --muted: #a7b4aa;
+  --line: #22392c;
+  --accent: #d2ab63;
+  --accent-strong: #e7c67f;
+  --accent-soft: #2c2517;
+  --felt: #0a1a12;
+  --gold: #d2ab63;
+  --danger: #e08b72;
+  --success: #8ab99a;
+  --shadow-color: 0 0 0;
+}
+
+@theme inline {
+  --font-sans: var(--font-body);
+  --font-display: var(--font-title);
+  --color-canvas: var(--canvas);
+  --color-canvas-strong: var(--canvas-strong);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-felt: var(--felt);
+  --color-gold: var(--gold);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --shadow-soft: 0 24px 80px -40px rgb(var(--shadow-color) / 0.5);
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+html {
+  background: var(--canvas);
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background-color: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-body);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  background-image:
+    radial-gradient(circle at 12% -8%, color-mix(in srgb, var(--accent) 12%, transparent) 0, transparent 32rem),
+    radial-gradient(circle at 92% 108%, color-mix(in srgb, var(--accent) 8%, transparent) 0, transparent 34rem),
+    linear-gradient(145deg, color-mix(in srgb, var(--canvas) 94%, white) 0%, var(--canvas) 58%, var(--canvas-strong) 100%);
+  background-attachment: fixed;
+}
+
+.dark body {
+  background-image:
+    radial-gradient(circle at 15% -10%, color-mix(in srgb, var(--accent) 13%, transparent) 0, transparent 30rem),
+    radial-gradient(circle at 92% 108%, color-mix(in srgb, var(--accent) 7%, transparent) 0, transparent 34rem),
+    linear-gradient(145deg, #07130d 0%, #08170f 52%, #06110b 100%);
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 32%, transparent);
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+button,
+a,
+textarea,
+select,
+input {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+select {
+  font: inherit;
+}
+
+* {
+  scrollbar-color: color-mix(in srgb, var(--muted) 34%, transparent) transparent;
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 34%, transparent);
+}
+
+.font-display {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+}
+
+.felt-texture {
+  background-color: var(--felt);
+  background-image:
+    radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--accent) 8%, transparent) 0 1px, transparent 1px),
+    radial-gradient(circle at 70% 60%, color-mix(in srgb, var(--accent) 6%, transparent) 0 1px, transparent 1px);
+  background-size: 22px 22px, 31px 31px;
+}
+
+.hairline {
+  border-color: color-mix(in srgb, var(--line) 82%, transparent);
+}
+
+.markdown {
+  color: var(--ink);
+  font-size: 0.975rem;
+  line-height: 1.75;
+}
+
+.markdown > :first-child {
+  margin-top: 0;
+}
+
+.markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown p {
+  margin: 0.75rem 0;
+}
+
+.markdown strong {
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+.markdown em {
+  color: var(--muted);
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+  margin: 1.2rem 0 0.55rem;
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.markdown h1 {
+  font-size: 1.45rem;
+}
+
+.markdown h2 {
+  font-size: 1.25rem;
+}
+
+.markdown h3,
+.markdown h4 {
+  font-size: 1.05rem;
+}
+
+.markdown ul,
+.markdown ol {
+  margin: 0.7rem 0;
+  padding-left: 1.2rem;
+}
+
+.markdown ul {
+  list-style: disc;
+}
+
+.markdown ol {
+  list-style: decimal;
+}
+
+.markdown li {
+  margin: 0.25rem 0;
+}
+
+.markdown li::marker {
+  color: var(--accent);
+}
+
+.markdown a {
+  color: var(--accent-strong);
+  text-decoration: underline;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.18em;
+}
+
+.markdown code {
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  border-radius: 0.35rem;
+  background: color-mix(in srgb, var(--surface-2) 72%, transparent);
+  padding: 0.12rem 0.35rem;
+  font-size: 0.86em;
+}
+
+.markdown pre {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--surface-2) 78%, transparent);
+  padding: 0.85rem 1rem;
+}
+
+.markdown pre code {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.markdown blockquote {
+  margin: 0.85rem 0;
+  border-left: 2px solid var(--accent);
+  padding-left: 0.9rem;
+  color: var(--muted);
+}
+
+.markdown hr {
+  margin: 1.1rem 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.9rem 0;
+  font-size: 0.9rem;
+}
+
+.markdown th,
+.markdown td {
+  border-bottom: 1px solid var(--line);
+  padding: 0.45rem 0.5rem;
+  text-align: left;
+}
+
+.markdown th {
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.thinking-dot {
+  display: inline-block;
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 999px;
+  background: var(--accent);
+  animation: thinking-bounce 1.15s infinite ease-in-out;
+}
+
+.thinking-dot:nth-child(2) {
+  animation-delay: 0.14s;
+}
+
+.thinking-dot:nth-child(3) {
+  animation-delay: 0.28s;
+}
+
+@keyframes thinking-bounce {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  40% {
+    transform: translateY(-0.28rem);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

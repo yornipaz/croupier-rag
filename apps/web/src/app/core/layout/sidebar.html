@@ -1,0 +1,155 @@
+<div
+  class="sidebar-backdrop"
+  [class.visible]="mobileOpen()"
+  (click)="closeMobile()"
+  aria-hidden="true"
+></div>
+
+<aside
+  id="croupier-sidebar"
+  class="sidebar"
+  [class.open]="mobileOpen()"
+  [class.collapsed]="collapsed()"
+  aria-label="Navegación de Croupier"
+>
+  <div class="flex h-full min-h-0 flex-col">
+    <div class="flex h-16 items-center gap-3 border-b border-line/70 px-4">
+      <a
+        routerLink="/chat"
+        class="flex min-w-0 items-center gap-2.5 rounded-xl text-ink"
+        (click)="closeMobile()"
+        aria-label="Croupier, ir al chat"
+      >
+        <app-logo-mark [size]="34" />
+        @if (!collapsed() || mobileOpen()) {
+          <span class="min-w-0">
+            <span class="font-display block text-[1.05rem] font-semibold tracking-tight">
+              Croupier
+            </span>
+            <span class="block text-[10px] font-semibold uppercase tracking-[0.2em] text-muted">
+              Mesa de consulta
+            </span>
+          </span>
+        }
+      </a>
+
+      <button
+        type="button"
+        class="ml-auto hidden size-8 items-center justify-center rounded-lg text-muted transition hover:bg-surface-2 hover:text-ink lg:inline-flex"
+        (click)="toggleSidebar()"
+        [attr.aria-label]="collapsed() ? 'Expandir barra lateral' : 'Colapsar barra lateral'"
+        [attr.aria-expanded]="!collapsed()"
+        aria-controls="croupier-sidebar"
+      >
+        <app-icon [name]="collapsed() ? 'chevron-right' : 'chevron-left'" [size]="16" />
+      </button>
+
+      <button
+        type="button"
+        class="ml-auto inline-flex size-8 items-center justify-center rounded-lg text-muted transition hover:bg-surface-2 hover:text-ink lg:hidden"
+        (click)="closeMobile()"
+        aria-label="Cerrar menú"
+      >
+        <app-icon name="close" [size]="18" />
+      </button>
+    </div>
+
+    <div class="px-3 pb-3 pt-4">
+      <button
+        type="button"
+        class="flex w-full items-center gap-2.5 rounded-xl border border-accent/30 bg-accent-soft/35 px-3 py-2.5 text-left text-sm font-semibold text-accent-strong transition hover:border-accent/50 hover:bg-accent-soft/60"
+        (click)="newConversation()"
+        aria-label="Nueva conversación"
+      >
+        <app-icon name="plus" [size]="17" />
+        @if (!collapsed() || mobileOpen()) {
+          <span class="truncate">Nueva conversación</span>
+        }
+      </button>
+    </div>
+
+    <nav class="min-h-0 flex-1 overflow-y-auto px-2 pb-4" aria-label="Principal">
+      @if (!collapsed() || mobileOpen()) {
+        <p class="px-2 pb-2 pt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">
+          Conversaciones
+        </p>
+        <ul class="space-y-1">
+          @for (conversation of conversations(); track conversation.id) {
+            <li>
+              <button
+                type="button"
+                class="group flex w-full items-start gap-2.5 rounded-xl px-2.5 py-2 text-left transition hover:bg-surface-2/80"
+                [class.bg-surface-2]="activeId() === conversation.id"
+                [class.shadow-sm]="activeId() === conversation.id"
+                (click)="selectConversation(conversation.id)"
+                [attr.aria-current]="activeId() === conversation.id ? 'page' : null"
+              >
+                <span
+                  class="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg border border-line/80 text-muted group-hover:text-accent"
+                  [class.text-accent]="activeId() === conversation.id"
+                >
+                  <app-icon name="chat" [size]="14" />
+                </span>
+                <span class="min-w-0 flex-1">
+                  <span class="flex items-center gap-2">
+                    <span class="truncate text-[13px] font-semibold text-ink">
+                      {{ conversation.title }}
+                    </span>
+                    <span class="ml-auto shrink-0 text-[10px] text-muted">
+                      {{ formatUpdated(conversation.updatedAt) }}
+                    </span>
+                  </span>
+                  <span class="mt-0.5 block truncate text-[11px] text-muted">
+                    {{ conversation.preview }}
+                  </span>
+                </span>
+              </button>
+            </li>
+          }
+        </ul>
+      } @else {
+        <div class="flex flex-col items-center gap-2 py-3 text-muted">
+          <app-icon name="chat" [size]="17" />
+        </div>
+      }
+
+      <div class="mt-6">
+        @if (!collapsed() || mobileOpen()) {
+          <p class="px-2 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">
+            Documentos
+          </p>
+        }
+        <a
+          routerLink="/documents"
+          routerLinkActive="bg-surface-2 text-ink shadow-sm"
+          class="group flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-muted transition hover:bg-surface-2/80 hover:text-ink"
+          (click)="closeMobile()"
+        >
+          <span class="flex size-7 shrink-0 items-center justify-center rounded-lg border border-line/80">
+            <app-icon name="document" [size]="14" />
+          </span>
+          @if (!collapsed() || mobileOpen()) {
+            <span class="min-w-0 flex-1">
+              <span class="block text-[13px] font-semibold">Biblioteca</span>
+              <span class="block truncate text-[11px] text-muted">PDFs indexados</span>
+            </span>
+            <app-icon name="chevron-right" [size]="14" class="text-muted" />
+          }
+        </a>
+      </div>
+    </nav>
+
+    <div class="border-t border-line/70 p-3">
+      <div class="flex items-center gap-2 rounded-xl bg-surface-2/50 px-2.5 py-2 text-muted">
+        <span class="relative flex size-2">
+          <span class="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-30"></span>
+          <span class="relative inline-flex size-2 rounded-full bg-success"></span>
+        </span>
+        @if (!collapsed() || mobileOpen()) {
+          <span class="text-[11px] font-medium">RAG híbrido listo</span>
+          <span class="ml-auto text-[10px] uppercase tracking-wider text-muted/80">v0.1</span>
+        }
+      </div>
+    </div>
+  </div>
+</aside>
