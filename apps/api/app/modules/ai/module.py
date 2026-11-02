@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from app.config.settings import Settings
 from app.modules.ai.application.ports.embedding import EmbeddingPort
 from app.modules.ai.application.ports.llm import LLMPort
+from app.modules.ai.infrastructure.deepseek_llm import DeepSeekLLM
 from app.modules.ai.infrastructure.fastembed_embedding import FastEmbedEmbedding
 from app.modules.ai.infrastructure.gemini_embedding import GeminiEmbedding
 from app.modules.ai.infrastructure.gemini_llm import GeminiLLM
@@ -42,6 +43,12 @@ def _openai_key(settings: Settings) -> str:
     return settings.openai_api_key.get_secret_value()
 
 
+def _deepseek_key(settings: Settings) -> str:
+    if settings.deepseek_api_key is None:
+        raise LLMNotConfiguredError("DEEPSEEK_API_KEY is required")
+    return settings.deepseek_api_key.get_secret_value()
+
+
 def build_llm(settings: Settings, *, breaker: CircuitBreaker | None = None) -> LLMPort:
     """Select the LLM adapter from ``LLM_PROVIDER`` and wrap it with resilience."""
     if settings.llm_provider == "gemini":
@@ -65,6 +72,19 @@ def build_llm(settings: Settings, *, breaker: CircuitBreaker | None = None) -> L
             timeout_s=settings.llm_timeout_s,
         )
         name = f"llm:openai:{settings.llm_model}"
+    elif settings.llm_provider == "deepseek":
+        if not settings.llm_configured:
+            raise LLMNotConfiguredError(
+                "DEEPSEEK_API_KEY is required for LLM_PROVIDER=deepseek"
+            )
+        inner = DeepSeekLLM(
+            api_key=_deepseek_key(settings),
+            model=settings.llm_model,
+            base_url=settings.deepseek_base_url,
+            timeout_s=settings.llm_timeout_s,
+            thinking_enabled=settings.deepseek_thinking_enabled,
+        )
+        name = f"llm:deepseek:{settings.llm_model}"
     else:  # pragma: no cover - Settings validates the literal
         raise LLMNotConfiguredError(f"Unsupported LLM_PROVIDER: {settings.llm_provider}")
 

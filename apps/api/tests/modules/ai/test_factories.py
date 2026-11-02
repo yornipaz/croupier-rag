@@ -26,6 +26,30 @@ def test_build_llm_selects_ollama_and_exposes_only_the_port() -> None:
     assert llm.breaker.name == "llm:ollama:llama-test"
 
 
+def test_build_llm_requires_deepseek_key() -> None:
+    settings = Settings(
+        _env_file=None,
+        llm_provider="deepseek",
+        llm_model="deepseek-flash",
+    )
+
+    with pytest.raises(LLMNotConfiguredError):
+        build_llm(settings)
+
+
+def test_build_llm_selects_deepseek() -> None:
+    settings = Settings(
+        _env_file=None,
+        llm_provider="deepseek",
+        llm_model="deepseek-flash",
+        deepseek_api_key="sk-test",
+    )
+
+    llm = build_llm(settings)
+
+    assert llm.breaker.name == "llm:deepseek:deepseek-flash"
+
+
 def test_build_embedding_defaults_to_local_multilingual_model() -> None:
     embedding = build_embedding(Settings(_env_file=None))
 

@@ -69,11 +69,14 @@ class Settings(BaseSettings):
     job_events_prefix: str = "croupier:job-events:"
     job_state_ttl_seconds: int = Field(default=86_400, ge=60)
 
-    # LLM: LLM_PROVIDER decides the adapter (gemini | ollama | openai).
-    llm_provider: Literal["gemini", "ollama", "openai"] = "gemini"
+    # LLM: LLM_PROVIDER decides the adapter (gemini | ollama | openai | deepseek).
+    llm_provider: Literal["gemini", "ollama", "openai", "deepseek"] = "gemini"
     llm_model: str = "gemini-flash-latest"
     gemini_api_key: SecretStr | None = None
     openai_api_key: SecretStr | None = None
+    deepseek_api_key: SecretStr | None = None
+    deepseek_base_url: str = "https://api.deepseek.com"
+    deepseek_thinking_enabled: bool = False
     ollama_base_url: str = "http://localhost:11434"
 
     # Embeddings: fastembed (local), ollama or gemini.
@@ -143,7 +146,11 @@ class Settings(BaseSettings):
         return "" if prefix == "/" else prefix
 
     @field_validator(
-        "gemini_api_key", "openai_api_key", "qdrant_api_key", mode="before"
+        "gemini_api_key",
+        "openai_api_key",
+        "deepseek_api_key",
+        "qdrant_api_key",
+        mode="before",
     )
     @classmethod
     def _empty_secret_to_none(cls, value: Any) -> Any:
@@ -157,6 +164,7 @@ class Settings(BaseSettings):
         "sparse_embedding_model",
         "sparse_embedding_language",
         "ollama_base_url",
+        "deepseek_base_url",
         "qdrant_url",
         "redis_url",
     )
@@ -173,7 +181,7 @@ class Settings(BaseSettings):
             raise ValueError("REDIS_URL must start with redis://, rediss:// or unix://")
         return value
 
-    @field_validator("qdrant_url", "ollama_base_url")
+    @field_validator("qdrant_url", "ollama_base_url", "deepseek_base_url")
     @classmethod
     def _http_scheme(cls, value: str) -> str:
         if not value.startswith(("http://", "https://")):
@@ -203,6 +211,11 @@ class Settings(BaseSettings):
         if self.llm_provider == "openai":
             return bool(
                 self.openai_api_key and self.openai_api_key.get_secret_value().strip()
+            )
+        if self.llm_provider == "deepseek":
+            return bool(
+                self.deepseek_api_key
+                and self.deepseek_api_key.get_secret_value().strip()
             )
         return bool(
             self.gemini_api_key and self.gemini_api_key.get_secret_value().strip()

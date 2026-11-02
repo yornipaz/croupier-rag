@@ -125,6 +125,14 @@ def test_openai_provider_uses_its_own_key(monkeypatch: pytest.MonkeyPatch) -> No
     assert Settings(_env_file=None).llm_configured is True
 
 
+def test_deepseek_provider_uses_its_own_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LLM_PROVIDER", "deepseek")
+    assert Settings(_env_file=None).llm_configured is False
+
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-test")
+    assert Settings(_env_file=None).llm_configured is True
+
+
 def test_invalid_provider_fails_fast(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LLM_PROVIDER", "anthropic")
 

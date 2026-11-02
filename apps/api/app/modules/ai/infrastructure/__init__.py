@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.modules.ai.infrastructure.deepseek_llm import DeepSeekLLM
 from app.modules.ai.infrastructure.fastembed_embedding import (
     FastEmbedEmbedding,
     list_multilingual_models,
@@ -12,6 +13,7 @@ from app.modules.ai.infrastructure.openai_llm import OpenAILLM
 from app.modules.ai.infrastructure.resilient import ResilientEmbedding, ResilientLLM
 
 __all__ = [
+    "DeepSeekLLM",
     "FastEmbedEmbedding",
     "GeminiEmbedding",
     "GeminiLLM",

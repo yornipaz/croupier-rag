@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import httpx
@@ -11,7 +12,11 @@ from app.shared.errors import LLMNotConfiguredError, UpstreamError
 
 
 class OpenAILLM:
-    """Minimal OpenAI Chat Completions adapter (optional provider)."""
+    """OpenAI-compatible Chat Completions adapter.
+
+    It is used directly for OpenAI and as the base for DeepSeek, which exposes
+    the same wire format with a different base URL and model id.
+    """
 
     def __init__(
         self,
@@ -20,13 +25,21 @@ class OpenAILLM:
         model: str,
         base_url: str = "https://api.openai.com/v1",
         timeout_s: float = 60.0,
+        provider: str = "openai",
+        json_schema_supported: bool = True,
+        thinking_enabled: bool | None = None,
     ) -> None:
         if not api_key or not api_key.strip():
-            raise LLMNotConfiguredError("OPENAI_API_KEY is required for LLM_PROVIDER=openai")
+            raise LLMNotConfiguredError(
+                f"API key is required for LLM_PROVIDER={provider}"
+            )
         self._api_key = api_key
         self._model = model
         self._base_url = base_url.rstrip("/")
         self._timeout_s = timeout_s
+        self._provider = provider
+        self._json_schema_supported = json_schema_supported
+        self._thinking_enabled = thinking_enabled
 
     async def generate(
         self,
@@ -34,25 +47,50 @@ class OpenAILLM:
         system: str | None = None,
         response_schema: ResponseSchema | None = None,
     ) -> LLMResult:
-        messages: list[dict[str, str]] = []
-        if system:
-            messages.append({"role": "system", "content": system})
-        messages.append({"role": "user", "content": prompt})
-
+        effective_prompt = prompt
+        effective_system = system
         body: dict[str, Any] = {
             "model": self._model,
-            "messages": messages,
             "temperature": 0,
         }
+
         if response_schema is not None:
-            body["response_format"] = {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": "structured_response",
-                    "strict": True,
-                    "schema": to_json_schema(response_schema),
-                },
+            if self._json_schema_supported:
+                body["response_format"] = {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "structured_response",
+                        "strict": True,
+                        "schema": to_json_schema(response_schema),
+                    },
+                }
+            else:
+                # DeepSeek Chat Completions only supports json_object, not
+                # json_schema. Put the schema in the prompt and validate the
+                # returned JSON with Pydantic after parsing.
+                body["response_format"] = {"type": "json_object"}
+                schema_text = json.dumps(
+                    to_json_schema(response_schema), ensure_ascii=False
+                )
+                instruction = (
+                    "Devuelve exclusivamente un objeto JSON que cumpla este JSON Schema:\n"
+                    f"{schema_text}"
+                )
+                if effective_system:
+                    effective_system = f"{effective_system}\n\n{instruction}"
+                else:
+                    effective_prompt = f"{effective_prompt}\n\n{instruction}"
+
+        if self._thinking_enabled is not None:
+            body["thinking"] = {
+                "type": "enabled" if self._thinking_enabled else "disabled"
             }
+
+        messages: list[dict[str, str]] = []
+        if effective_system:
+            messages.append({"role": "system", "content": effective_system})
+        messages.append({"role": "user", "content": effective_prompt})
+        body["messages"] = messages
 
         try:
             async with httpx.AsyncClient(
@@ -64,14 +102,16 @@ class OpenAILLM:
                 response.raise_for_status()
                 data = response.json()
         except Exception as exc:
-            raise map_provider_exception("openai", exc) from exc
+            raise map_provider_exception(self._provider, exc) from exc
 
         try:
             content = data["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError) as exc:
-            raise UpstreamError("OpenAI returned an unexpected response") from exc
+            raise UpstreamError(
+                f"{self._provider} returned an unexpected response"
+            ) from exc
         if not isinstance(content, str) or not content:
-            raise UpstreamError("OpenAI returned an empty response")
+            raise UpstreamError(f"{self._provider} returned an empty response")
 
         parsed = (
             parse_json_payload(content, response_schema)
@@ -88,5 +128,5 @@ class OpenAILLM:
             model=str(data.get("model") or self._model),
             parsed=parsed,
             usage=usage,
-            provider="openai",
+            provider=self._provider,
         )
