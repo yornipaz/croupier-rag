@@ -68,8 +68,10 @@ Variables principales:
 | `QDRANT_URL` | `http://localhost:6333` | Vector store. |
 | `DATA_DIR` | `./data` | PDFs e imágenes extraídas. |
 | `LLM_PROVIDER` | `gemini` | `gemini`, `ollama` u `openai`. |
-| `EMBEDDING_PROVIDER` | `fastembed` | Embeddings locales. |
-| `GEMINI_API_KEY` | vacío | Necesaria con `LLM_PROVIDER=gemini`. |
+| `EMBEDDING_PROVIDER` | `fastembed` | `fastembed`, `ollama` o `gemini`. |
+| `EMBEDDING_MODEL` | `sentence-transformers/paraphrase-multilingual-mpnet-base-v2` | Modelo denso; con FastEmbed debe estar en `list_supported_models()`. |
+| `SPARSE_EMBEDDING_LANGUAGE` | `spanish` | Idioma del stemmer/stopwords de BM25. |
+| `GEMINI_API_KEY` | vacío | Necesaria con `LLM_PROVIDER=gemini` o `EMBEDDING_PROVIDER=gemini`. |
 | `OPENAI_API_KEY` | vacío | Opcional, con `LLM_PROVIDER=openai`. |
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama local. |
 | `RETRIEVAL_MIN_SCORE` | `0.30` | Umbral defensivo del retrieval. |
@@ -114,7 +116,8 @@ breaker = CircuitBreaker("gemini", failure_threshold=5, recovery_timeout=30)
 async def generate(prompt: str) -> str: ...
 ```
 
-Todavía no se aplica a ningún adapter: se conectará en las fases de IA.
+`ai/module.py` envuelve los adapters de LLM/embeddings y `vector_store/module.py` envuelve el
+adapter de Qdrant. Así el puerto que consume retrieval/chat ya incluye timeout, retry y breaker.
 
 ## Roadmap
 

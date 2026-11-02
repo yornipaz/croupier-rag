@@ -72,11 +72,12 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr | None = None
     ollama_base_url: str = "http://localhost:11434"
 
-    # Embeddings
-    embedding_provider: Literal["fastembed", "openai"] = "fastembed"
+    # Embeddings: fastembed (local), ollama or gemini.
+    embedding_provider: Literal["fastembed", "ollama", "gemini"] = "fastembed"
     embedding_model: str = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
     embedding_dim: int = Field(default=768, ge=1)
     sparse_embedding_model: str = "Qdrant/bm25"
+    sparse_embedding_language: str = "spanish"
 
     # Chunking / retrieval
     chunk_max_tokens: int = Field(default=450, ge=50, le=4000)
@@ -133,7 +134,15 @@ class Settings(BaseSettings):
             return None
         return value
 
-    @field_validator("llm_model", "ollama_base_url", "qdrant_url", "redis_url")
+    @field_validator(
+        "llm_model",
+        "embedding_model",
+        "sparse_embedding_model",
+        "sparse_embedding_language",
+        "ollama_base_url",
+        "qdrant_url",
+        "redis_url",
+    )
     @classmethod
     def _not_blank(cls, value: str) -> str:
         if not value.strip():

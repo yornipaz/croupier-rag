@@ -62,6 +62,13 @@ class UnsupportedMediaTypeError(AppError):
     http_status = 415
 
 
+class AuthenticationError(AppError):
+    """Provider rejected our credentials (401/403). Retrying cannot help."""
+
+    code = "authentication_error"
+    http_status = 401
+
+
 class ConfigurationError(AppError):
     code = "configuration_error"
     http_status = 503
@@ -69,6 +76,10 @@ class ConfigurationError(AppError):
 
 class LLMNotConfiguredError(ConfigurationError):
     code = "llm_not_configured"
+
+
+class EmbeddingNotConfiguredError(ConfigurationError):
+    code = "embedding_not_configured"
 
 
 class UpstreamError(AppError):

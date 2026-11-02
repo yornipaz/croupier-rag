@@ -1,3 +1,5 @@
 from __future__ import annotations
 
-__all__ = ["get_logger"]
+from app.shared.chunks import BBox, Chunk, ChunkKind
+
+__all__ = ["BBox", "Chunk", "ChunkKind"]
