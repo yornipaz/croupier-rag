@@ -8,23 +8,16 @@ import {
   viewChild,
 } from '@angular/core';
 
-import {
-  ChatApi,
-  type ChatResponse,
-  type ChatTurn,
-} from '../../core/api/chat-api';
+import { ChatApi, type ChatResponse, type ChatTurn } from '../../core/api/chat-api';
 import { AuditModeService } from '../../core/services/audit-mode.service';
 import { DocumentCatalogService } from '../../core/services/document-catalog.service';
-import {
-  ConversationStore,
-  type ChatMessage,
-} from '../../core/state/conversation.store';
+import { ConversationStore, type ChatMessage } from '../../core/state/conversation.store';
 import { ChatComposer } from './components/chat-composer';
 import { ChatEmpty } from './components/chat-empty';
 import { ChatMessage as ChatMessageComponent } from './components/chat-message';
 import { ThinkingBubble } from './components/thinking-bubble';
 import { Icon } from '../../shared/ui/icon';
-import { InspectorPanel } from '../inspector/inspector-panel';
+import { RetrievalInspector } from '../inspector/retrieval-inspector';
 
 interface FailedRequest {
   query: string;
@@ -40,10 +33,13 @@ interface FailedRequest {
     ChatEmpty,
     ChatMessageComponent,
     Icon,
-    InspectorPanel,
+    RetrievalInspector,
     ThinkingBubble,
   ],
-  host: { class: 'absolute inset-0' },
+  host: {
+    class: 'absolute inset-0',
+    '(document:keydown)': 'onGlobalKeydown($event)',
+  },
   templateUrl: './chat-page.html',
 })
 export class ChatPage {
@@ -57,12 +53,42 @@ export class ChatPage {
   protected readonly documentOptions = this.documents.documents;
   protected readonly selectedDocId = this.documents.selectedId;
   protected readonly auditorEnabled = this.auditMode.enabled;
+  protected readonly inspectorOpen = this.auditMode.drawerOpen;
   protected readonly thinking = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly lastFailed = signal<FailedRequest | null>(null);
   protected readonly visibleError = computed(() => {
     const failed = this.lastFailed();
     return failed?.conversationId === this.store.activeId() ? this.error() : null;
+  });
+  protected readonly lastAnswer = computed(() => {
+    const messages = this.messages();
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      if (messages[index].role === 'assistant') {
+        return messages[index];
+      }
+    }
+    return null;
+  });
+  protected readonly contextLabel = computed(() => {
+    if (this.thinking()) {
+      return 'Recuperando contexto';
+    }
+    const answer = this.lastAnswer();
+    if (!answer) {
+      return 'Contexto híbrido listo';
+    }
+    return answer.sufficient ? 'Contexto verificado' : 'Sin respaldo documental';
+  });
+  protected readonly contextTone = computed(() => {
+    if (this.thinking()) {
+      return 'accent';
+    }
+    const answer = this.lastAnswer();
+    if (!answer) {
+      return 'success';
+    }
+    return answer.sufficient ? 'success' : 'accent';
   });
 
   private readonly bottom = viewChild<ElementRef<HTMLDivElement>>('bottom');
@@ -101,6 +127,7 @@ export class ChatPage {
       images: [],
       sufficient: true,
       createdAt: Date.now(),
+      debug: null,
     });
     void this.performAsk(event.query, history, event.docId, conversationId);
   }
@@ -113,23 +140,37 @@ export class ChatPage {
     this.documents.select(documentId);
   }
 
+  protected onGlobalKeydown(event: KeyboardEvent): void {
+    if (event.key !== '/' || isEditableTarget(event.target)) {
+      return;
+    }
+    if (document.querySelector('[aria-modal="true"]')) {
+      return;
+    }
+    event.preventDefault();
+    document.getElementById('chat-input')?.focus();
+  }
+
   protected retry(): void {
     const failed = this.lastFailed();
     if (!failed || this.thinking()) {
       return;
     }
     this.error.set(null);
-    void this.performAsk(
-      failed.query,
-      failed.history,
-      failed.docId,
-      failed.conversationId,
-    );
+    void this.performAsk(failed.query, failed.history, failed.docId, failed.conversationId);
   }
 
   protected clearError(): void {
     this.error.set(null);
     this.lastFailed.set(null);
+  }
+
+  protected closeInspector(): void {
+    this.auditMode.closeDrawer();
+  }
+
+  protected openInspector(): void {
+    this.auditMode.openDrawer();
   }
 
   private async performAsk(
@@ -141,12 +182,15 @@ export class ChatPage {
     this.thinking.set(true);
     this.error.set(null);
     try {
-      const response = await this.chatApi.ask({
-        query,
-        history,
-        docId,
-        conversationId,
-      });
+      const response = await this.chatApi.ask(
+        {
+          query,
+          history,
+          docId,
+          conversationId,
+        },
+        { debug: this.auditMode.enabled() },
+      );
       this.store.addMessage(conversationId, this.assistantMessage(response));
       this.lastFailed.set(null);
     } catch (error) {
@@ -170,6 +214,7 @@ export class ChatPage {
       images: response.images ?? [],
       sufficient: response.sufficient,
       createdAt: Date.now(),
+      debug: response.debug ?? null,
     };
   }
 
@@ -185,4 +230,11 @@ export class ChatPage {
 
 function createMessageId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `message-${Date.now()}-${Math.random()}`;
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+  return target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
 }

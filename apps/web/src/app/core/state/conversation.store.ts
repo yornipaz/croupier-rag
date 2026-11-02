@@ -1,7 +1,7 @@
 import { Injectable, computed, signal } from '@angular/core';
 
 import { environment } from '../../../environments/environment';
-import type { ChatImage, ChatSource } from '../api/chat-api.types';
+import type { ChatDebug, ChatImage, ChatSource } from '../api/chat-api.types';
 
 export interface ChatMessage {
   id: string;
@@ -11,6 +11,7 @@ export interface ChatMessage {
   images: ChatImage[];
   sufficient: boolean;
   createdAt: number;
+  debug: ChatDebug | null;
 }
 
 export interface Conversation {
@@ -27,9 +28,7 @@ export class ConversationStore {
   private readonly activeIdState = signal<string>(this.conversationsState()[0]?.id ?? '');
   private readonly activeConversation = computed(
     () =>
-      this.conversationsState().find(
-        (conversation) => conversation.id === this.activeIdState(),
-      ) ??
+      this.conversationsState().find((conversation) => conversation.id === this.activeIdState()) ??
       this.conversationsState()[0] ??
       null,
   );
@@ -111,6 +110,7 @@ function createSeedConversations(): Conversation[] {
           images: [],
           sufficient: true,
           createdAt: now - 1000 * 60 * 11,
+          debug: null,
         },
         {
           id: createId(),
@@ -146,6 +146,32 @@ function createSeedConversations(): Conversation[] {
           ],
           sufficient: true,
           createdAt: now - 1000 * 60 * 9,
+          debug: {
+            retrieved: [
+              {
+                chunkId: 'mock-chunk-1',
+                docId: 'manual-motor',
+                page: 12,
+                sectionPath: ['Panel de control', 'Conexiones'],
+                kind: 'text',
+                rrfScore: 1,
+                relevanceScore: 0.82,
+                denseRank: 1,
+                sparseRank: 1,
+              },
+              {
+                chunkId: 'mock-chunk-2',
+                docId: 'manual-motor',
+                page: 18,
+                sectionPath: ['Panel de control', 'Diagnóstico'],
+                kind: 'text',
+                rrfScore: 0.5,
+                relevanceScore: 0.61,
+                denseRank: 2,
+                sparseRank: 3,
+              },
+            ],
+          },
         },
       ],
     },
@@ -163,16 +189,31 @@ function createSeedConversations(): Conversation[] {
           images: [],
           sufficient: true,
           createdAt: now - 1000 * 60 * 47,
+          debug: null,
         },
         {
           id: createId(),
           role: 'assistant',
-          content:
-            'No tengo información suficiente en los documentos para responder esto.',
+          content: 'No tengo información suficiente en los documentos para responder esto.',
           sources: [],
           images: [],
           sufficient: false,
           createdAt: now - 1000 * 60 * 46,
+          debug: {
+            retrieved: [
+              {
+                chunkId: 'mock-chunk-low',
+                docId: 'manual-motor',
+                page: 4,
+                sectionPath: ['Frenado', 'Mantenimiento'],
+                kind: 'text',
+                rrfScore: 0.25,
+                relevanceScore: 0.18,
+                denseRank: 3,
+                sparseRank: 5,
+              },
+            ],
+          },
         },
       ],
     },

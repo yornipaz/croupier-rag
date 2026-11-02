@@ -1,0 +1,36 @@
+:host {
+  display: contents;
+}
+
+.inspector-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgb(0 0 0 / 0.35);
+  backdrop-filter: blur(2px);
+}
+
+.inspector-drawer {
+  position: fixed;
+  inset: 0 0 0 auto;
+  z-index: 60;
+  display: flex;
+  width: min(26rem, 92vw);
+  height: 100dvh;
+  flex-direction: column;
+  border-left: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  box-shadow: -24px 0 80px -40px rgb(0 0 0 / 0.5);
+  animation: inspector-in 180ms ease-out;
+}
+
+@keyframes inspector-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
