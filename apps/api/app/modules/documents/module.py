@@ -6,6 +6,9 @@ from fastapi import APIRouter
 from qdrant_client import AsyncQdrantClient
 
 from app.config.settings import Settings
+from app.modules.documents.application.ports.document_repository import (
+    DocumentRepositoryPort,
+)
 from app.modules.documents.application.use_cases.delete_document import DeleteDocumentUseCase
 from app.modules.documents.application.use_cases.get_document import GetDocumentUseCase
 from app.modules.documents.application.use_cases.list_documents import ListDocumentsUseCase
@@ -30,6 +33,7 @@ __all__ = [
 
 @dataclass(frozen=True, slots=True)
 class DocumentServices:
+    repository: DocumentRepositoryPort
     upload: UploadDocumentUseCase
     list_documents: ListDocumentsUseCase
     get_document: GetDocumentUseCase
@@ -56,6 +60,7 @@ def build_document_services(
     dispatcher = CeleryIngestionDispatcher()
 
     return DocumentServices(
+        repository=documents,
         upload=UploadDocumentUseCase(
             documents,
             files,
