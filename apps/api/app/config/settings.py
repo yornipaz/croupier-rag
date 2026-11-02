@@ -102,6 +102,11 @@ class Settings(BaseSettings):
     breaker_failure_threshold: int = Field(default=5, ge=1)
     breaker_recovery_s: float = Field(default=30.0, gt=0)
 
+    # Chat / conversations
+    chat_history_turns: int = Field(default=6, ge=1, le=50)
+    conversation_prefix: str = "croupier:conversation:"
+    conversation_ttl_seconds: int = Field(default=86_400, ge=60)
+
     # Jobs / SSE
     sse_heartbeat_s: float = Field(default=15.0, gt=0)
     ingestion_max_retries: int = Field(default=3, ge=0, le=10)
