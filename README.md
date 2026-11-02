@@ -3,9 +3,9 @@
 RAG multimodal para manuales técnicos en PDF: ingestión de texto, tablas y diagramas, recuperación
 híbrida y respuestas con fuente (archivo, página, bbox) e imagen relevante.
 
-> **Estado: esqueleto del monorepo.** Arquitectura modular, configuración validada, resiliencia,
-> health check y Docker funcionando. Ingesta, retrieval, chat y UI se implementan en las siguientes
-> fases.
+> **Estado: documentos e ingesta funcionando.** La API sube PDFs, los procesa en el worker
+> (texto, tablas, imágenes y captions), indexa chunks híbridos en Qdrant y expone el progreso por
+> SSE. Retrieval, chat y UI se implementan en las siguientes fases.
 
 ## Arranque (Docker)
 
@@ -64,9 +64,10 @@ Variables principales:
 | Variable | Default | Descripción |
 | --- | --- | --- |
 | `ENV` | `local` | Selecciona `.env.${ENV}`. |
+| `API_PREFIX` | vacío | Prefijo común; si se define, usar `/v1/health`, etc. |
 | `REDIS_URL` | `redis://localhost:6379/0` | Estado de jobs y broker Celery. |
 | `QDRANT_URL` | `http://localhost:6333` | Vector store. |
-| `DATA_DIR` | `./data` | PDFs e imágenes extraídas. |
+| `DATA_DIR` | `./data` | PDFs, metadatos, imágenes extraídas y caché de crops. |
 | `LLM_PROVIDER` | `gemini` | `gemini`, `ollama` u `openai`. |
 | `EMBEDDING_PROVIDER` | `fastembed` | `fastembed`, `ollama` o `gemini`. |
 | `EMBEDDING_MODEL` | `sentence-transformers/paraphrase-multilingual-mpnet-base-v2` | Modelo denso; con FastEmbed debe estar en `list_supported_models()`. |
@@ -99,7 +100,17 @@ Los tests no usan red: health se prueba con probes fake y `dependency_overrides`
 | Método | Ruta | Descripción |
 | --- | --- | --- |
 | `GET` | `/health` | Redis + Qdrant en paralelo con timeout; `503` si algo crítico falla. |
+| `POST` | `/documents` | Multipart PDF; responde `202 {jobId, documentId}`. |
+| `GET` | `/documents` | Lista de documentos con metadatos y conteos. |
+| `GET` | `/documents/{id}` | Metadatos de un documento. |
+| `DELETE` | `/documents/{id}` | Borra vectores, PDF, imágenes, caché y job. |
+| `GET` | `/documents/{id}/pages/{n}/crop` | PNG recortado por `bbox`; `highlight=true` resalta la zona. |
+| `GET` | `/jobs/{id}` | Estado, etapa, progreso y error del job. |
+| `GET` | `/jobs/{id}/events` | SSE con estado actual y actualizaciones del job. |
 | `GET` | `/docs` | Swagger UI ordenada por tags. |
+
+La primera ingesta descarga el modelo denso de FastEmbed en el worker; en Docker queda cacheado en
+el volumen `data` (`/data/cache`).
 
 ## Resiliencia (lista para usar)
 
@@ -121,8 +132,8 @@ adapter de Qdrant. Así el puerto que consume retrieval/chat ya incluye timeout,
 
 ## Roadmap
 
-1. `documents`: upload, metadata y crop con PyMuPDF.
-2. `ingestion`: parser por bloques, chunking por layout, ImageLinker y jobs SSE.
-3. `ai` + `vector_store`: Gemini/Ollama/fastembed y Qdrant híbrido con RRF.
+1. ✅ `documents`: upload, metadata y crop con PyMuPDF.
+2. ✅ `ingestion`: parser por bloques, chunking por layout, ImageLinker y jobs SSE.
+3. ✅ `ai` + `vector_store`: Gemini/Ollama/fastembed y Qdrant híbrido con RRF.
 4. `retrieval` + `chat`: umbral defensivo, citas `[S1]` y salida JSON validada.
 5. `apps/web`: Angular standalone + signals + Tailwind.
