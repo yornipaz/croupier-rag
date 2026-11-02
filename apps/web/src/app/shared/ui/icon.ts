@@ -13,6 +13,8 @@ export type IconName =
   | 'spark'
   | 'shield'
   | 'refresh'
+  | 'check'
+  | 'expand'
   | 'arrow-up-right'
   | 'arrow-right'
   | 'chevron-left'
@@ -60,7 +62,9 @@ export type IconName =
         }
         @case ('sun') {
           <circle cx="12" cy="12" r="4" />
-          <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41" />
+          <path
+            d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"
+          />
         }
         @case ('moon') {
           <path d="M20.5 14.4A8.5 8.5 0 0 1 9.6 3.5a8.5 8.5 0 1 0 10.9 10.9Z" />
@@ -84,6 +88,13 @@ export type IconName =
         @case ('refresh') {
           <path d="M20 12a8 8 0 1 1-2.3-5.7" />
           <path d="M20 4v5h-5" />
+        }
+        @case ('check') {
+          <path d="m5 12 4 4L19 6" />
+        }
+        @case ('expand') {
+          <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" />
+          <path d="m3 8 5-5M21 8l-5-5M3 16l5 5M21 16l-5 5" />
         }
         @case ('arrow-up-right') {
           <path d="M7 17 17 7M8 7h9v9" />
@@ -109,7 +120,9 @@ export type IconName =
           <path d="m3 13 9 5 9-5" />
         }
         @case ('warning') {
-          <path d="M10.3 4.2 2.7 18a1.7 1.7 0 0 0 1.5 2.5h15.6a1.7 1.7 0 0 0 1.5-2.5L13.7 4.2a1.9 1.9 0 0 0-3.4 0Z" />
+          <path
+            d="M10.3 4.2 2.7 18a1.7 1.7 0 0 0 1.5 2.5h15.6a1.7 1.7 0 0 0 1.5-2.5L13.7 4.2a1.9 1.9 0 0 0-3.4 0Z"
+          />
           <path d="M12 9v4M12 17h.01" />
         }
         @case ('external') {

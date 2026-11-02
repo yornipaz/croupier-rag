@@ -1,0 +1,139 @@
+<figure class="overflow-hidden rounded-2xl border border-line/80 bg-surface/60">
+  <button
+    type="button"
+    class="group relative block w-full text-left"
+    (click)="openViewer()"
+    [attr.aria-label]="'Ampliar imagen de la página ' + image().page"
+  >
+    <img
+      [src]="image().url"
+      [alt]="'Vista de la página ' + image().page"
+      class="aspect-[16/9] w-full object-cover transition duration-500 group-hover:scale-[1.025]"
+    />
+    <span
+      class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/0 to-black/0 opacity-80"
+      aria-hidden="true"
+    ></span>
+    <span
+      class="pointer-events-none absolute right-3 top-3 flex size-8 items-center justify-center rounded-lg border border-white/30 bg-black/35 text-white backdrop-blur-sm transition group-hover:bg-black/50"
+      aria-hidden="true"
+    >
+      <app-icon name="expand" [size]="15" />
+    </span>
+    <span
+      class="pointer-events-none absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-black/35 px-2 py-1 text-[10px] font-semibold text-white backdrop-blur-sm"
+    >
+      <app-icon name="layers" [size]="11" />
+      p. {{ image().page }}
+    </span>
+  </button>
+  <figcaption class="flex items-center justify-between gap-2 px-3 py-2 text-[10px] text-muted">
+    <span class="inline-flex min-w-0 items-center gap-1.5">
+      <app-icon name="document" [size]="11" class="text-accent" />
+      <span class="truncate">Diagrama de referencia</span>
+    </span>
+    <button
+      type="button"
+      class="shrink-0 font-semibold text-accent transition hover:text-accent-strong"
+      (click)="openViewer()"
+    >
+      Ver en la página
+    </button>
+  </figcaption>
+</figure>
+
+@if (open()) {
+  <div class="fixed inset-0 z-[80] flex items-center justify-center p-3 sm:p-6">
+    <div
+      class="absolute inset-0 bg-black/65 backdrop-blur-sm"
+      (click)="close()"
+      aria-hidden="true"
+    ></div>
+    <div
+      class="figure-modal relative z-10 flex max-h-[92dvh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Página del manual con la figura resaltada"
+      appFocusTrap
+      tabindex="-1"
+    >
+      <header class="flex items-center gap-3 border-b border-line/80 px-4 py-3 sm:px-5">
+        <span
+          class="flex size-8 items-center justify-center rounded-lg border border-accent/30 bg-accent-soft/35 text-accent"
+        >
+          <app-icon name="layers" [size]="15" />
+        </span>
+        <div class="min-w-0 flex-1">
+          <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">
+            Figura en el manual
+          </p>
+          <p class="truncate text-[13px] font-semibold text-ink">Página {{ image().page }}</p>
+        </div>
+        <button
+          type="button"
+          class="inline-flex size-8 items-center justify-center rounded-lg text-muted transition hover:bg-surface-2 hover:text-ink"
+          (click)="close()"
+          aria-label="Cerrar vista de página"
+        >
+          <app-icon name="close" [size]="17" />
+        </button>
+      </header>
+
+      <div class="relative min-h-0 flex-1 overflow-auto bg-surface-2/70 p-3 sm:p-5">
+        @if (loading()) {
+          <div
+            class="aspect-[16/10] w-full animate-pulse rounded-xl border border-line/60 bg-surface-2"
+            aria-label="Cargando página recortada"
+            role="status"
+          ></div>
+        }
+
+        @if (!failed()) {
+          <img
+            [src]="viewerSrc()"
+            [alt]="'Página ' + image().page + ' con la zona relevante resaltada'"
+            class="mx-auto max-h-[72dvh] w-auto max-w-full rounded-xl border border-line/60 bg-white object-contain shadow-sm transition-opacity duration-300"
+            [class.opacity-0]="loading()"
+            (load)="onImageLoad()"
+            (error)="onImageError()"
+          />
+        } @else {
+          <div class="flex flex-col items-center gap-3 py-4">
+            <img
+              [src]="image().url"
+              [alt]="'Imagen de la página ' + image().page"
+              class="max-h-[64dvh] w-auto max-w-full rounded-xl border border-line/60 object-contain"
+            />
+            <p
+              class="rounded-lg border border-accent/25 bg-accent-soft/30 px-3 py-2 text-[11px] text-muted"
+            >
+              No se pudo cargar la página recortada. Mostrando la imagen original.
+            </p>
+          </div>
+        }
+      </div>
+
+      <footer
+        class="flex flex-wrap items-center gap-3 border-t border-line/80 px-4 py-2.5 text-[10px] text-muted sm:px-5"
+      >
+        <span class="inline-flex items-center gap-1.5">
+          <app-icon name="spark" [size]="12" class="text-accent" />
+          @if (hasPageCrop()) {
+            Recorte del PDF con el bbox resaltado
+          } @else {
+            Vista de imagen de demostración
+          }
+        </span>
+        <a
+          [href]="image().url"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="ml-auto inline-flex items-center gap-1.5 font-semibold text-accent transition hover:text-accent-strong"
+        >
+          Abrir imagen original
+          <app-icon name="external" [size]="11" />
+        </a>
+      </footer>
+    </div>
+  </div>
+}
