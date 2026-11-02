@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420" role="img" aria-labelledby="title desc">
+  <title id="title">Panel de control de ejemplo</title>
+  <desc id="desc">Diagrama técnico con una placa de control, conectores de alimentación y entradas digitales.</desc>
+  <defs>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#11261b"/>
+      <stop offset="1" stop-color="#07130d"/>
+    </linearGradient>
+    <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">
+      <path d="M24 0H0V24" fill="none" stroke="#d2ab63" stroke-opacity=".12" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="720" height="420" rx="24" fill="#f4efe6"/>
+  <rect x="34" y="34" width="652" height="352" rx="18" fill="url(#panel)"/>
+  <rect x="34" y="34" width="652" height="352" rx="18" fill="url(#grid)"/>
+  <rect x="66" y="66" width="244" height="132" rx="12" fill="#0c1b14" stroke="#d2ab63" stroke-opacity=".55"/>
+  <rect x="86" y="88" width="118" height="12" rx="6" fill="#d2ab63" opacity=".8"/>
+  <rect x="86" y="114" width="174" height="7" rx="3.5" fill="#f1eadc" opacity=".34"/>
+  <rect x="86" y="130" width="142" height="7" rx="3.5" fill="#f1eadc" opacity=".22"/>
+  <circle cx="262" cy="164" r="15" fill="#d2ab63" opacity=".18"/>
+  <circle cx="262" cy="164" r="5" fill="#d2ab63"/>
+  <rect x="338" y="66" width="314" height="132" rx="12" fill="#0c1b14" stroke="#d2ab63" stroke-opacity=".3"/>
+  <g stroke="#d2ab63" stroke-opacity=".64" fill="none" stroke-width="2">
+    <path d="M370 102h70v26h-70z"/>
+    <path d="M440 115h64"/>
+    <path d="M504 115v44"/>
+    <path d="M370 160h88v22h-88z"/>
+    <path d="M504 160v22"/>
+  </g>
+  <g fill="#f1eadc" font-family="Manrope, sans-serif" font-size="13" opacity=".85">
+    <text x="380" y="121">J1 · 24 V</text>
+    <text x="380" y="177">J2 · 24 V</text>
+    <text x="540" y="116">PLC</text>
+  </g>
+  <rect x="66" y="232" width="586" height="118" rx="12" fill="#0c1b14" stroke="#f1eadc" stroke-opacity=".16"/>
+  <g fill="none" stroke="#d2ab63" stroke-width="2" stroke-opacity=".55">
+    <circle cx="126" cy="291" r="22"/>
+    <circle cx="224" cy="291" r="22"/>
+    <circle cx="322" cy="291" r="22"/>
+    <circle cx="420" cy="291" r="22"/>
+    <circle cx="518" cy="291" r="22"/>
+    <path d="M148 291h54M246 291h54M344 291h54M442 291h54"/>
+  </g>
+  <g fill="#f1eadc" font-family="Manrope, sans-serif" font-size="12" text-anchor="middle" opacity=".75">
+    <text x="126" y="296">DI1</text>
+    <text x="224" y="296">DI2</text>
+    <text x="322" y="296">DI3</text>
+    <text x="420" y="296">DI4</text>
+    <text x="518" y="296">DI5</text>
+    <text x="126" y="335">Entradas digitales</text>
+  </g>
+  <text x="66" y="48" fill="#d2ab63" font-family="Manrope, sans-serif" font-size="11" letter-spacing="2">CROUPIER · DIAGRAMA DE REFERENCIA</text>
+</svg>

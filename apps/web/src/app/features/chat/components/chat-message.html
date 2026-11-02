@@ -1,0 +1,87 @@
+@if (isUser()) {
+  <article class="flex justify-end" aria-label="Tu mensaje">
+    <div
+      class="max-w-[88%] rounded-[1.4rem] rounded-br-md bg-ink px-4 py-3 text-[0.92rem] leading-6 text-canvas shadow-sm sm:max-w-[78%]"
+    >
+      <p class="whitespace-pre-wrap">{{ message().content }}</p>
+    </div>
+  </article>
+} @else {
+  <article class="flex gap-3" aria-label="Respuesta de Croupier">
+    <app-logo-mark [size]="28" class="mt-1 hidden sm:inline-flex" />
+    <div class="min-w-0 flex-1">
+      <div class="mb-1.5 flex items-center gap-2 px-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">
+        <span class="text-accent">Croupier</span>
+        <span aria-hidden="true" class="text-line">·</span>
+        <time [attr.datetime]="isoTime()">{{ time() }}</time>
+      </div>
+
+      @if (!message().sufficient) {
+        <div
+          class="overflow-hidden rounded-[1.4rem] rounded-tl-md border border-accent/30 bg-accent-soft/35"
+          role="status"
+        >
+          <div class="flex items-start gap-3 p-4 sm:p-5">
+            <span
+              class="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full border border-accent/30 bg-surface/60 text-accent"
+            >
+              <app-icon name="shield" [size]="18" />
+            </span>
+            <div class="min-w-0">
+              <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent">
+                Sin respaldo documental
+              </p>
+              <h2 class="font-display mt-1 text-lg font-semibold leading-tight tracking-tight text-ink">
+                Aquí no apuesto: los documentos no tienen datos suficientes
+              </h2>
+              <p class="mt-2 text-[13px] leading-5 text-muted">
+                La recuperación no encontró pasajes que sostengan esta pregunta con confianza
+                suficiente. Prueba con otro documento, un modelo concreto o una pregunta más
+                acotada.
+              </p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 border-t border-accent/20 bg-surface/30 px-4 py-2 text-[10px] text-muted sm:px-5">
+            <app-icon name="spark" [size]="12" class="text-accent" />
+            Prefiero callar antes que inventar una fuente.
+          </div>
+        </div>
+      } @else {
+        <div
+          class="rounded-[1.4rem] rounded-tl-md border border-line/80 bg-surface/80 px-4 py-3.5 shadow-sm sm:px-5"
+        >
+          <markdown class="markdown" [data]="message().content" />
+        </div>
+      }
+
+      <app-source-chips [sources]="message().sources" />
+
+      @if (message().images.length > 0) {
+        <div class="mt-3 grid gap-2 sm:grid-cols-2">
+          @for (image of message().images; track image.url + image.page) {
+            <a
+              [href]="image.url"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="group overflow-hidden rounded-2xl border border-line/80 bg-surface/60 transition hover:border-accent/40 hover:shadow-soft"
+              [attr.aria-label]="'Abrir imagen de la página ' + image.page"
+            >
+              <img
+                [src]="image.url"
+                [alt]="'Diagrama del manual en la página ' + image.page"
+                class="aspect-[16/9] w-full object-cover transition duration-300 group-hover:scale-[1.015]"
+              />
+              <span class="flex items-center justify-between gap-2 px-3 py-2 text-[10px] text-muted">
+                <span class="inline-flex items-center gap-1.5">
+                  <app-icon name="layers" [size]="12" class="text-accent" />
+                  Diagrama de referencia · p. {{ image.page }}
+                </span>
+                <app-icon name="external" [size]="12" />
+              </span>
+            </a>
+          }
+        </div>
+      }
+    </div>
+  </article>
+}

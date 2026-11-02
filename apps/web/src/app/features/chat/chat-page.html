@@ -1,0 +1,91 @@
+<div class="flex h-full min-h-0">
+  <section class="flex min-w-0 flex-1 flex-col">
+    <div class="flex h-14 shrink-0 items-center gap-3 border-b border-line/70 bg-canvas/60 px-4 backdrop-blur-sm sm:px-6">
+      <div class="min-w-0">
+        <p class="text-[9px] font-semibold uppercase tracking-[0.22em] text-muted">
+          Consulta
+        </p>
+        <h1 class="truncate text-[13px] font-semibold text-ink">
+          {{ activeConversation()?.title ?? 'Nueva conversación' }}
+        </h1>
+      </div>
+      <div class="ml-auto hidden items-center gap-2 text-[10px] text-muted sm:flex">
+        <span class="size-1.5 rounded-full bg-success"></span>
+        Contexto verificado
+      </div>
+    </div>
+
+    <div
+      class="min-h-0 flex-1 overflow-y-auto"
+      role="log"
+      aria-label="Conversación"
+      aria-live="polite"
+      aria-relevant="additions"
+      [attr.aria-busy]="thinking()"
+    >
+      <div class="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
+        @if (messages().length === 0 && !thinking() && !visibleError()) {
+          <app-chat-empty (ask)="sendPrompt($event)" />
+        } @else {
+          @for (message of messages(); track message.id) {
+            <app-chat-message [message]="message" />
+          }
+
+          @if (thinking()) {
+            <app-thinking-bubble />
+          }
+
+          @if (visibleError()) {
+            <div
+              class="flex flex-col gap-3 rounded-2xl border border-danger/30 bg-danger/10 p-4 text-sm text-danger sm:flex-row sm:items-center"
+              role="alert"
+            >
+              <span class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-danger/10">
+                <app-icon name="warning" [size]="16" />
+              </span>
+              <p class="min-w-0 flex-1">{{ visibleError() }}</p>
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  class="rounded-lg border border-danger/30 px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] transition hover:bg-danger/10"
+                  (click)="retry()"
+                >
+                  Reintentar
+                </button>
+                <button
+                  type="button"
+                  class="rounded-lg px-2 py-1.5 text-[11px] text-danger/70 transition hover:text-danger"
+                  (click)="clearError()"
+                  aria-label="Cerrar error"
+                >
+                  <app-icon name="close" [size]="14" />
+                </button>
+              </div>
+            </div>
+          }
+        }
+        <div #bottom class="h-px" aria-hidden="true"></div>
+      </div>
+    </div>
+
+    <div class="shrink-0 border-t border-line/70 bg-canvas/85 px-3 py-3 backdrop-blur-xl sm:px-6 sm:py-4">
+      <div class="mx-auto max-w-4xl">
+        <app-chat-composer
+          [disabled]="thinking()"
+          [documents]="documentOptions()"
+          [selectedDocId]="selectedDocId()"
+          (send)="send($event)"
+          (documentChange)="onDocumentChange($event)"
+        />
+        <p class="mt-2 text-center text-[10px] leading-4 text-muted/70">
+          Croupier cita la página y el diagrama. Verifica siempre la revisión vigente
+          del manual.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  @if (auditorEnabled()) {
+    <app-inspector-panel class="hidden h-full xl:flex" />
+  }
+</div>
