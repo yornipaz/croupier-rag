@@ -18,6 +18,7 @@ docker compose up --build
 
 | Recurso | URL |
 | --- | --- |
+| Web | http://localhost:4200 |
 | Health | http://localhost:8000/health |
 | Swagger UI | http://localhost:8000/docs |
 | OpenAPI | http://localhost:8000/openapi.json |
@@ -25,9 +26,10 @@ docker compose up --build
 
 Sin `.env` también arranca: la API responde y reporta el LLM como no configurado.
 
-Servicios Docker: `api`, `worker`, `redis`, `qdrant`. La web Angular se ejecuta con
-`cd apps/web && npm start`; en desarrollo arranca con `useMock: true` para probar el chat sin
-depender del LLM.
+Servicios Docker: `api`, `worker`, `redis`, `qdrant`, `web`. La web se sirve con Nginx y
+proxifica `/api/*` al backend (`/api/v1/...` → `http://api:8000/v1/...`), incluyendo SSE para
+la línea de tiempo de ingesta. En desarrollo también puedes ejecutar `cd apps/web && npm start`;
+arranca con `useMock: true` para probar el chat sin depender del LLM.
 
 ## Estructura
 
@@ -46,6 +48,8 @@ depender del LLM.
 │   │   ├── Dockerfile        # multi-stage
 │   │   └── .importlinter
 │   └── web/                  # Angular 22 + signals + Tailwind
+│       ├── Dockerfile        # multi-stage: build + Nginx
+│       └── nginx.conf        # SPA fallback + proxy /api y SSE
 ├── docs/adr/                 # Decisiones de arquitectura
 ├── eval/                     # Plan del conjunto de evaluación
 ├── docker-compose.yml
@@ -111,7 +115,24 @@ npm run build
 
 En desarrollo (`environment.ts`) `useMock: true` permite chatear sin backend: incluye una
 respuesta con fuentes e imagen y otra con estado "sin información suficiente". El build de
-producción usa `environment.production.ts` con `useMock: false` y el cliente HTTP real.
+producción usa `environment.production.ts` con `useMock: false`, `apiBaseUrl: '/api'` y el
+cliente HTTP real; el contenedor `web` sirve los estáticos y proxifica la API.
+
+La UI incluye:
+
+- **Figura junto a la respuesta**: miniatura con zoom y modal "Ver en la página"; carga el crop
+  del PDF con `highlight=true`, skeleton, fallback a la imagen original, cierre con `Esc` y
+  foco atrapado.
+- **Biblioteca**: subida drag & drop solo PDF (máximo 50 MB), estado derivado, refresco y borrado
+  con confirmación inline.
+- **Línea de tiempo de ingesta**: SSE desde `/jobs/{id}/events`, etapas parsing → imágenes →
+  chunking → embeddings → indexación, porcentaje, error legible, reconexión y cierre al terminal.
+- **Inspector de recuperación**: activa “Modo auditor” para enviar `debug=true`; el drawer lista
+  chunks, sección, página, scores, ranks denso/sparse y el motivo de rechazo cuando no hay
+  respaldo documental.
+- **Atajos**: `Enter` envía, `Shift+Enter` salta línea, `/` enfoca la consulta, `Ctrl/Cmd+K` crea
+  conversación, `Esc` cierra modales/paneles y `?` abre la ayuda de teclado.
+- Estados vacíos propios, transiciones sutiles y respeto a `prefers-reduced-motion`.
 
 ## Endpoints actuales
 
