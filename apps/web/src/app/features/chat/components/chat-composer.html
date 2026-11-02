@@ -36,9 +36,11 @@
         (change)="onDocumentChange($event)"
         class="max-w-52 appearance-none rounded-lg border border-line/80 bg-surface-2/60 py-1.5 pl-2.5 pr-7 text-[11px] font-medium text-muted outline-none transition hover:text-ink focus:border-accent/50"
       >
-        <option value="">Todos los documentos</option>
+        <option value="" [selected]="!selectedDocId()">Todos los documentos</option>
         @for (document of documents(); track document.id) {
-          <option [value]="document.id">{{ document.filename }}</option>
+          <option [value]="document.id" [selected]="document.id === selectedDocId()">
+            {{ document.filename }}
+          </option>
         }
       </select>
       <app-icon
@@ -48,11 +50,18 @@
       />
     </div>
 
-    <span id="chat-input-hint" class="ml-auto hidden items-center gap-1 text-[10px] text-muted/80 sm:inline-flex">
-      <kbd class="rounded border border-line/80 bg-surface-2 px-1 py-0.5 font-sans text-[9px]">Enter</kbd>
+    <span
+      id="chat-input-hint"
+      class="ml-auto hidden items-center gap-1 text-[10px] text-muted/80 sm:inline-flex"
+    >
+      <kbd class="rounded border border-line/80 bg-surface-2 px-1 py-0.5 font-sans text-[9px]"
+        >Enter</kbd
+      >
       envía
       <span class="mx-0.5 text-line">·</span>
-      <kbd class="rounded border border-line/80 bg-surface-2 px-1 py-0.5 font-sans text-[9px]">Shift</kbd>
+      <kbd class="rounded border border-line/80 bg-surface-2 px-1 py-0.5 font-sans text-[9px]"
+        >Shift</kbd
+      >
       + Enter salta línea
     </span>
   </div>
