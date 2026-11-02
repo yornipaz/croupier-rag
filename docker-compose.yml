@@ -57,6 +57,16 @@ services:
       start_period: 15s
     restart: unless-stopped
 
+  web:
+    build:
+      context: ./apps/web
+    ports:
+      - "4200:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
   worker:
     build:
       context: ./apps/api

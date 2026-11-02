@@ -33,20 +33,20 @@ export class HttpChatApi implements ChatApiContract {
     if (/^https?:\/\//i.test(url) || url.startsWith('data:')) {
       return url;
     }
-    const origin = environment.apiBaseUrl || window.location.origin;
-    return new URL(url, origin).toString();
+    const base = environment.apiBaseUrl
+      ? new URL(environment.apiBaseUrl, window.location.origin).toString().replace(/\/$/, '')
+      : window.location.origin;
+    if (url.startsWith('/')) {
+      return `${base}${url}`;
+    }
+    return new URL(url, `${base}/`).toString();
   }
 
   private toUserError(error: unknown): Error {
     if (error instanceof HttpErrorResponse) {
-      const payload = error.error as
-        | { error?: { message?: string } }
-        | null
-        | undefined;
+      const payload = error.error as { error?: { message?: string } } | null | undefined;
       if (error.status === 0) {
-        return new Error(
-          'No se pudo conectar con la API. Revisa que el backend esté levantado.',
-        );
+        return new Error('No se pudo conectar con la API. Revisa que el backend esté levantado.');
       }
       if (payload?.error?.message) {
         return new Error(payload.error.message);
