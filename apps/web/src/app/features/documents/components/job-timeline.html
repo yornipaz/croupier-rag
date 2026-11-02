@@ -1,0 +1,119 @@
+<section
+  class="overflow-hidden rounded-2xl border border-line/80 bg-surface/75 shadow-soft"
+  aria-live="polite"
+  [attr.aria-busy]="!job() || job()?.status === 'PROCESSING'"
+>
+  <header class="flex flex-wrap items-start gap-3 border-b border-line/70 px-4 py-3.5 sm:px-5">
+    <span
+      class="flex size-9 shrink-0 items-center justify-center rounded-xl border border-accent/30 bg-accent-soft/35 text-accent"
+    >
+      <app-icon name="layers" [size]="17" />
+    </span>
+    <div class="min-w-0 flex-1">
+      <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent">Ingesta</p>
+      <h3 class="truncate text-[13px] font-semibold text-ink">{{ jobTitle() }}</h3>
+    </div>
+    <span
+      class="inline-flex items-center gap-1.5 rounded-full border border-line/80 bg-surface-2/60 px-2.5 py-1 text-[10px] font-semibold text-muted"
+    >
+      <span
+        class="size-1.5 rounded-full"
+        [class.bg-success]="connection() === 'open'"
+        [class.bg-accent]="connection() === 'connecting' || connection() === 'reconnecting'"
+        [class.bg-danger]="streamError() !== null"
+      ></span>
+      {{ streamError() ? 'Sin conexión' : connectionLabel() }}
+    </span>
+  </header>
+
+  <div class="px-4 pb-4 pt-4 sm:px-5">
+    <div class="mb-2 flex items-center justify-between gap-3">
+      <span class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">
+        Progreso global
+      </span>
+      <span class="font-display text-lg font-semibold text-ink"> {{ job()?.progress ?? 0 }}% </span>
+    </div>
+    <div class="h-1.5 overflow-hidden rounded-full bg-surface-2">
+      <div
+        class="h-full rounded-full bg-accent transition-[width] duration-500"
+        [style.width.%]="job()?.progress ?? 0"
+      ></div>
+    </div>
+
+    <ol class="mt-4 space-y-1.5">
+      @for (stage of stages; track stage.key) {
+        <li
+          class="flex items-center gap-3 rounded-xl px-2.5 py-2 transition-colors"
+          [class.bg-accent-soft/25]="stageState(stage.index) === 'active'"
+        >
+          <span
+            class="flex size-6 shrink-0 items-center justify-center rounded-full border text-[10px]"
+            [class.border-success/40]="stageState(stage.index) === 'done'"
+            [class.bg-success/10]="stageState(stage.index) === 'done'"
+            [class.text-success]="stageState(stage.index) === 'done'"
+            [class.border-accent/40]="stageState(stage.index) === 'active'"
+            [class.text-accent]="stageState(stage.index) === 'active'"
+            [class.border-danger/40]="stageState(stage.index) === 'failed'"
+            [class.text-danger]="stageState(stage.index) === 'failed'"
+            [class.border-line/80]="stageState(stage.index) === 'pending'"
+            [class.text-muted]="stageState(stage.index) === 'pending'"
+          >
+            @switch (stageState(stage.index)) {
+              @case ('done') {
+                <app-icon name="check" [size]="13" />
+              }
+              @case ('active') {
+                <app-icon name="refresh" [size]="13" class="animate-spin" />
+              }
+              @case ('failed') {
+                <app-icon name="warning" [size]="13" />
+              }
+              @default {
+                <span class="size-1.5 rounded-full bg-current"></span>
+              }
+            }
+          </span>
+          <div class="min-w-0 flex-1">
+            <p
+              class="text-[12px] font-semibold"
+              [class.text-ink]="stageState(stage.index) !== 'pending'"
+              [class.text-muted]="stageState(stage.index) === 'pending'"
+            >
+              {{ stage.label }}
+            </p>
+            <p class="truncate text-[10px] text-muted">{{ stage.detail }}</p>
+          </div>
+          <span
+            class="text-[10px] font-semibold tabular-nums"
+            [class.text-success]="stageState(stage.index) === 'done'"
+            [class.text-accent]="stageState(stage.index) === 'active'"
+            [class.text-danger]="stageState(stage.index) === 'failed'"
+            [class.text-muted]="stageState(stage.index) === 'pending'"
+          >
+            {{ stageStatus(stage.index) }}
+          </span>
+        </li>
+      }
+    </ol>
+
+    @if (job()?.error) {
+      <div
+        class="mt-4 flex items-start gap-2 rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-[11px] leading-5 text-danger"
+        role="alert"
+      >
+        <app-icon name="warning" [size]="15" class="mt-0.5" />
+        <p class="min-w-0 flex-1">{{ job()?.error }}</p>
+      </div>
+    }
+
+    @if (streamError()) {
+      <div
+        class="mt-4 flex items-start gap-2 rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-[11px] leading-5 text-danger"
+        role="alert"
+      >
+        <app-icon name="warning" [size]="15" class="mt-0.5" />
+        <p class="min-w-0 flex-1">{{ streamError() }}</p>
+      </div>
+    }
+  </div>
+</section>

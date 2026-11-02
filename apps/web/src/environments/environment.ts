@@ -4,4 +4,5 @@ export const environment = {
   appName: 'Croupier',
   apiBaseUrl: 'http://localhost:8000',
   apiPrefix: '/v1',
+  maxUploadMb: 50,
 };
