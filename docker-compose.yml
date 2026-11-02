@@ -1,0 +1,94 @@
+name: croupier-rag
+
+services:
+  redis:
+    image: redis:8-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:v1.20.0
+    volumes:
+      - qdrant_data:/qdrant/storage
+    ports:
+      - "6333:6333"
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./apps/api
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      QDRANT_URL: http://qdrant:6333
+      DATA_DIR: /data
+      ENV: ${ENV:-local}
+    volumes:
+      - data:/data
+    ports:
+      - "8000:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status == 200 else 1)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ./apps/api
+    command:
+      [
+        "celery",
+        "-A",
+        "app.worker",
+        "worker",
+        "--loglevel=INFO",
+        "--concurrency=2",
+      ]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      QDRANT_URL: http://qdrant:6333
+      DATA_DIR: /data
+      ENV: ${ENV:-local}
+    volumes:
+      - data:/data
+      - fastembed_cache:/home/app/.cache
+    depends_on:
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  data:
+  redis_data:
+  qdrant_data:
+  fastembed_cache:
