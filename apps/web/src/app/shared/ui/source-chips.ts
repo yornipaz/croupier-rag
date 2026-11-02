@@ -14,6 +14,8 @@ import { Icon } from './icon';
         </span>
         @for (source of sources(); track source.file + source.page) {
           <span
+            data-testid="source-chip"
+            [attr.data-page]="source.page"
             class="inline-flex max-w-full items-center gap-1.5 rounded-full border border-line bg-surface-2/70 px-2.5 py-1 text-[11px] font-medium text-muted"
             [title]="source.sectionPath.join(' / ')"
           >

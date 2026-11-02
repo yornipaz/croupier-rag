@@ -1,5 +1,5 @@
 @if (isUser()) {
-  <article class="flex justify-end" aria-label="Tu mensaje">
+  <article data-testid="user-message" class="flex justify-end" aria-label="Tu mensaje">
     <div
       class="max-w-[88%] rounded-[1.4rem] rounded-br-md bg-ink px-4 py-3 text-[0.92rem] leading-6 text-canvas shadow-sm sm:max-w-[78%]"
     >
@@ -7,7 +7,12 @@
     </div>
   </article>
 } @else {
-  <article class="flex gap-3" aria-label="Respuesta de Croupier">
+  <article
+    data-testid="assistant-message"
+    [attr.data-sufficient]="message().sufficient"
+    class="flex gap-3"
+    aria-label="Respuesta de Croupier"
+  >
     <app-logo-mark [size]="28" class="mt-1 hidden sm:inline-flex" />
     <div class="min-w-0 flex-1">
       <div
@@ -20,6 +25,7 @@
 
       @if (!message().sufficient) {
         <div
+          data-testid="insufficient-answer"
           class="overflow-hidden rounded-[1.4rem] rounded-tl-md border border-accent/30 bg-accent-soft/35"
           role="status"
         >

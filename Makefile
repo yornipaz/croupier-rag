@@ -1,7 +1,13 @@
 SHELL := /bin/bash
 API_DIR := apps/api
 
-.PHONY: help install lock dev worker test lint fmt mypy lint-arch quality up down logs ps build clean
+DEMO_DIR := $(CURDIR)/demo
+DEMO_PDF ?= $(HOME)/Downloads/Manual de usuario app.pdf
+PYTHON ?= python3
+NODE ?= node
+
+.PHONY: help install lock dev worker test lint fmt mypy lint-arch quality up down logs ps build clean \
+	demo demo-dry demo-check demo-tts demo-record demo-build demo-deps demo-clean
 
 help:
 	@echo "install     Instala dependencias Python (uv + Python 3.12)"
@@ -15,6 +21,10 @@ help:
 	@echo "lint-arch   import-linter"
 	@echo "quality     lint + mypy + lint-arch + test"
 	@echo "up / down   docker compose"
+	@echo "demo        Genera demo/out/demo.mp4 (TTS + grabación + montaje)"
+	@echo "demo-dry    Recorre el flujo sin grabar (valida selectores)"
+	@echo "demo-clean  Borra demo/out"
+	@echo "demo-deps   Instala Playwright/Chromium y dependencias de la demo"
 
 install:
 	cd $(API_DIR) && uv sync --python 3.12
@@ -62,3 +72,41 @@ build:
 
 clean:
 	rm -rf $(API_DIR)/.venv $(API_DIR)/.mypy_cache $(API_DIR)/.ruff_cache $(API_DIR)/.pytest_cache
+
+# ---------------------------------------------------------------------------
+# Demo en video
+# ---------------------------------------------------------------------------
+demo:
+	@$(MAKE) --no-print-directory demo-check MODE=full
+	@$(MAKE) --no-print-directory demo-tts
+	@$(MAKE) --no-print-directory demo-record
+	@$(MAKE) --no-print-directory demo-build
+	@echo ""
+	@echo "Demo lista: $(DEMO_DIR)/out/demo.mp4"
+
+demo-dry:
+	@$(MAKE) --no-print-directory demo-check MODE=dry
+	@DEMO_PDF="$(DEMO_PDF)" DEMO_DIR="$(DEMO_DIR)" \
+		$(NODE) --experimental-strip-types --no-warnings "$(DEMO_DIR)/record.ts" --dry-run
+
+demo-check:
+	@DEMO_DIR="$(DEMO_DIR)" DEMO_PDF="$(DEMO_PDF)" bash "$(DEMO_DIR)/check.sh" "$(MODE)"
+
+demo-tts:
+	@DEMO_PDF="$(DEMO_PDF)" DEMO_DIR="$(DEMO_DIR)" $(PYTHON) "$(DEMO_DIR)/tts.py"
+
+demo-record:
+	@DEMO_PDF="$(DEMO_PDF)" DEMO_DIR="$(DEMO_DIR)" \
+		$(NODE) --experimental-strip-types --no-warnings "$(DEMO_DIR)/record.ts"
+
+demo-build:
+	@DEMO_PDF="$(DEMO_PDF)" DEMO_DIR="$(DEMO_DIR)" bash "$(DEMO_DIR)/build.sh"
+
+demo-deps:
+	cd "$(DEMO_DIR)" && npm install
+	cd "$(DEMO_DIR)" && npx playwright install chromium
+	@$(PYTHON) -m pip install --user edge-tts pyyaml || \
+		echo "Si pip está bloqueado por PEP 668, crea un venv e instala edge-tts y pyyaml."
+
+demo-clean:
+	rm -rf "$(DEMO_DIR)/out"

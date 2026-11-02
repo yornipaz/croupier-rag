@@ -1,0 +1,14 @@
+{
+  "name": "croupier-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Grabación automatizada de la demo de Croupier",
+  "scripts": {
+    "record": "node --experimental-strip-types --no-warnings record.ts",
+    "dry": "node --experimental-strip-types --no-warnings record.ts --dry-run"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "yaml": "^2.8.1"
+  }
+}

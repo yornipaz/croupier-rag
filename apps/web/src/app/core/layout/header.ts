@@ -58,6 +58,7 @@ import { ThemeService } from '../services/theme.service';
 
         @if (isMock) {
           <span
+            data-testid="mock-badge"
             class="hidden items-center gap-1.5 rounded-full border border-accent/25 bg-accent-soft/35 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-accent-strong sm:inline-flex"
             title="Los datos son simulados; no se está llamando al backend"
           >
@@ -78,6 +79,7 @@ import { ThemeService } from '../services/theme.service';
 
         <button
           type="button"
+          data-testid="auditor-toggle"
           class="inline-flex items-center gap-2 rounded-xl border px-2.5 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] transition hover:bg-surface-2 sm:px-3"
           [ngClass]="
             auditor()

@@ -1,0 +1,144 @@
+# Guion de la demo de Croupier.
+#
+# Campos obligatorios por segmento:
+#   id, narration, action, audio_file?
+#
+# Acciones permitidas:
+#   intro | architecture | upload | ask_figure | show_page | ask_unknown | auditor_mode | outro
+#
+# Campo opcional `question`: texto que se escribe en el chat en ese segmento.
+# Si una grabación propia sustituye a la voz sintética, basta con rellenar
+# `audio_file` con una ruta relativa a demo/ (por ejemplo audio/mi-voz.mp3).
+
+segments:
+  - id: intro
+    action: intro
+    narration: >-
+      Esto es Croupier: respuestas con las cartas sobre la mesa. Convierte manuales técnicos en PDF
+      en una mesa de consulta que cita la página y muestra el diagrama exacto.
+
+  - id: architecture
+    action: architecture
+    narration: >-
+      Por dentro es un monolito modular hexagonal: módulos con puertos claros, una cola asíncrona
+      con Celery y Redis, y búsqueda híbrida que combina vectores densos con BM25.
+
+  - id: upload-start
+    action: upload
+    narration: >-
+      Vamos a la biblioteca y subo el manual de Blaniza. La ingesta corre en segundo plano: primero
+      se extrae el texto, las tablas y la estructura del PDF.
+
+  - id: upload-parse
+    action: upload
+    narration: >-
+      En la línea de tiempo ves el parsing en vivo. Cada etapa reporta su avance por SSE, así que
+      la interfaz no necesita recargar ni adivinar el estado.
+
+  - id: upload-images
+    action: upload
+    narration: >-
+      Ahora se detectan las imágenes y se vinculan con su texto: captions, referencias del tipo
+      «ver figura» y, si hace falta, proximidad en la página.
+
+  - id: upload-chunk
+    action: upload
+    narration: >-
+      El chunking respeta la maquetación: los encabezados construyen la ruta de sección, las tablas
+      van completas y los párrafos nunca se cortan por la mitad.
+
+  - id: upload-embed
+    action: upload
+    narration: >-
+      Se generan embeddings densos y dispersos por lotes. FastEmbed corre local; cada fragmento
+      guarda su vector y su representación BM25 para la búsqueda híbrida.
+
+  - id: upload-embed-hold
+    action: upload
+    narration: >-
+      FastEmbed mantiene el modelo caliente en el worker. Mientras los vectores llegan a Qdrant,
+      la página sigue mostrando el avance sin bloquear la interfaz.
+
+  - id: upload-index
+    action: upload
+    narration: >-
+      Por último, el upsert indexa todo en Qdrant. Cuando la etapa termina, el documento queda
+      listo y ya podemos preguntarle con fuente y figura.
+
+  - id: warmup
+    action: ask_figure
+    question: ¿Qué hace la aplicación y dónde almacena los pedidos que descarga?
+    narration: >-
+      Pregunto qué hace la aplicación y dónde guarda los pedidos. La respuesta se apoya en la
+      página tres y muestra la fuente citada, sin inventar.
+
+  - id: warmup-answer
+    action: ask_figure
+    narration: >-
+      Ahí está: descarga los pedidos de Eroski y los almacena en MongoDB. La tarjeta de fuente me
+      dice el archivo y la página exacta.
+
+  - id: figure
+    action: ask_figure
+    question: >-
+      Según la captura de la app móvil, ¿qué indica el número entre corchetes junto a cada tienda y
+      de qué color se muestra una tienda sin pedidos pendientes?
+    narration: >-
+      Ahora la pregunta con figura: qué indican los números entre corchetes junto a cada tienda y
+      cuándo el nombre se pone verde.
+
+  - id: figure-answer
+    action: ask_figure
+    narration: >-
+      La captura de la app móvil responde: pendientes sobre total, en rojo; verde cuando no queda
+      ninguno. Croupier enlaza la figura con su página.
+
+  - id: figure-answer-hold
+    action: ask_figure
+    narration: >-
+      La imagen no es decorativa: es la evidencia visual de la página enlazada al fragmento. Por
+      eso puedo abrirla y compararla con la respuesta.
+
+  - id: show-page
+    action: show_page
+    narration: >-
+      Abro «Ver en la página» y aparece el recorte real del PDF con la zona relevante resaltada.
+      La evidencia queda a la vista, no solo citada.
+
+  - id: show-page-hold
+    action: show_page
+    narration: >-
+      El recorte se genera con PyMuPDF a partir del bbox del fragmento. Puedo revisar el contexto
+      completo y cerrar cuando termino.
+
+  - id: unknown
+    action: ask_unknown
+    question: ¿Cómo se integra la aplicación con los pedidos de Mercadona?
+    narration: >-
+      Y la prueba de fuego: pregunto por una integración con Mercadona que el manual no menciona.
+      Si no hay respaldo, Croupier no llama al modelo.
+
+  - id: unknown-answer
+    action: ask_unknown
+    narration: >-
+      Aparece el estado «sin respaldo documental». Aquí no apuesto: prefiere callar antes que
+      inventar una fuente o un dato.
+
+  - id: auditor-enable
+    action: auditor_mode
+    question: ¿Qué hace la aplicación y dónde almacena los pedidos que descarga?
+    narration: >-
+      Activo el modo auditor, el Pit Boss de la mesa. Repito la pregunta y esta vez la API devuelve
+      la traza de recuperación completa.
+
+  - id: auditor-traces
+    action: auditor_mode
+    narration: >-
+      Aquí veo cada chunk recuperado con su score, su posición densa, su posición sparse y el RRF.
+      Todo transparente para poder auditar la respuesta.
+
+  - id: outro
+    action: outro
+    narration: >-
+      Croupier está probado con pytest, evaluación de recuperación y despliegue en Docker. Escala
+      añadiendo workers y colecciones. Gracias por acompañarme en la mesa.

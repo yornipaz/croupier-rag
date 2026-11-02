@@ -1,7 +1,12 @@
 <section
+  data-testid="job-timeline"
   class="overflow-hidden rounded-2xl border border-line/80 bg-surface/75 shadow-soft"
   aria-live="polite"
   [attr.aria-busy]="!job() || job()?.status === 'PROCESSING'"
+  [attr.data-job-status]="job()?.status ?? 'PENDING'"
+  [attr.data-job-stage]="job()?.stage ?? 'queued'"
+  [attr.data-job-progress]="job()?.progress ?? 0"
+  [attr.data-job-id]="jobId()"
 >
   <header class="flex flex-wrap items-start gap-3 border-b border-line/70 px-4 py-3.5 sm:px-5">
     <span
@@ -11,7 +16,9 @@
     </span>
     <div class="min-w-0 flex-1">
       <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent">Ingesta</p>
-      <h3 class="truncate text-[13px] font-semibold text-ink">{{ jobTitle() }}</h3>
+      <h3 data-testid="job-title" class="truncate text-[13px] font-semibold text-ink">
+        {{ jobTitle() }}
+      </h3>
     </div>
     <span
       class="inline-flex items-center gap-1.5 rounded-full border border-line/80 bg-surface-2/60 px-2.5 py-1 text-[10px] font-semibold text-muted"
@@ -31,7 +38,9 @@
       <span class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">
         Progreso global
       </span>
-      <span class="font-display text-lg font-semibold text-ink"> {{ job()?.progress ?? 0 }}% </span>
+      <span data-testid="job-progress" class="font-display text-lg font-semibold text-ink">
+        {{ job()?.progress ?? 0 }}%
+      </span>
     </div>
     <div class="h-1.5 overflow-hidden rounded-full bg-surface-2">
       <div
@@ -43,6 +52,9 @@
     <ol class="mt-4 space-y-1.5">
       @for (stage of stages; track stage.key) {
         <li
+          data-testid="job-stage"
+          [attr.data-stage-key]="stage.key"
+          [attr.data-stage-state]="stageState(stage.index)"
           class="flex items-center gap-3 rounded-xl px-2.5 py-2 transition-colors"
           [class.bg-accent-soft/25]="stageState(stage.index) === 'active'"
         >

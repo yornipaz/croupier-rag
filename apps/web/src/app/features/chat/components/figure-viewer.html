@@ -1,6 +1,7 @@
-<figure class="overflow-hidden rounded-2xl border border-line/80 bg-surface/60">
+<figure data-testid="figure-viewer" class="overflow-hidden rounded-2xl border border-line/80 bg-surface/60">
   <button
     type="button"
+    data-testid="figure-open"
     class="group relative block w-full text-left"
     (click)="openViewer()"
     [attr.aria-label]="'Ampliar imagen de la página ' + image().page"
@@ -34,6 +35,7 @@
     </span>
     <button
       type="button"
+      data-testid="figure-page-link"
       class="shrink-0 font-semibold text-accent transition hover:text-accent-strong"
       (click)="openViewer()"
     >
@@ -50,6 +52,7 @@
       aria-hidden="true"
     ></div>
     <div
+      data-testid="figure-page-modal"
       class="figure-modal relative z-10 flex max-h-[92dvh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl"
       role="dialog"
       aria-modal="true"
@@ -71,6 +74,7 @@
         </div>
         <button
           type="button"
+          data-testid="figure-page-close"
           class="inline-flex size-8 items-center justify-center rounded-lg text-muted transition hover:bg-surface-2 hover:text-ink"
           (click)="close()"
           aria-label="Cerrar vista de página"
@@ -90,6 +94,7 @@
 
         @if (!failed()) {
           <img
+            data-testid="figure-page-image"
             [src]="viewerSrc()"
             [alt]="'Página ' + image().page + ' con la zona relevante resaltada'"
             class="mx-auto max-h-[72dvh] w-auto max-w-full rounded-xl border border-line/60 bg-white object-contain shadow-sm transition-opacity duration-300"

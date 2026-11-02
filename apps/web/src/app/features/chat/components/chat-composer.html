@@ -7,6 +7,7 @@
     <textarea
       #textarea
       id="chat-input"
+      data-testid="chat-input"
       rows="1"
       [value]="draft()"
       (input)="onInput($event)"
@@ -19,6 +20,7 @@
     ></textarea>
     <button
       type="submit"
+      data-testid="chat-send"
       class="mb-0.5 inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-canvas shadow-sm transition hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-35"
       [disabled]="!canSend()"
       aria-label="Enviar consulta"
@@ -32,6 +34,7 @@
     <div class="relative min-w-0">
       <select
         id="chat-document"
+        data-testid="chat-document-select"
         [value]="selectedDocId() ?? ''"
         (change)="onDocumentChange($event)"
         class="max-w-52 appearance-none rounded-lg border border-line/80 bg-surface-2/60 py-1.5 pl-2.5 pr-7 text-[11px] font-medium text-muted outline-none transition hover:text-ink focus:border-accent/50"

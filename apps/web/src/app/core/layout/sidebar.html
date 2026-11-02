@@ -57,6 +57,7 @@
     <div class="px-3 pb-3 pt-4">
       <button
         type="button"
+        data-testid="new-conversation"
         class="flex w-full items-center gap-2.5 rounded-xl border border-accent/30 bg-accent-soft/35 px-3 py-2.5 text-left text-sm font-semibold text-accent-strong transition hover:border-accent/50 hover:bg-accent-soft/60"
         (click)="newConversation()"
         aria-label="Nueva conversación"
@@ -121,6 +122,7 @@
         }
         <a
           routerLink="/documents"
+          data-testid="nav-documents"
           routerLinkActive="bg-surface-2 text-ink shadow-sm"
           class="group flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-muted transition hover:bg-surface-2/80 hover:text-ink"
           (click)="closeMobile()"

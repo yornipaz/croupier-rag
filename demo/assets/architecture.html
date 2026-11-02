@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>Croupier · Arquitectura</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --canvas: #07130d;
+        --surface: #0c1b14;
+        --surface-2: #11261b;
+        --ink: #f1eadc;
+        --muted: #a7b4aa;
+        --line: #22392c;
+        --accent: #d2ab63;
+        --accent-soft: #2c2517;
+        --success: #8ab99a;
+        --danger: #e08b72;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 12% -10%, rgba(210, 171, 99, 0.16), transparent 34rem),
+          radial-gradient(circle at 92% 112%, rgba(210, 171, 99, 0.09), transparent 38rem),
+          linear-gradient(145deg, #07130d 0%, #08170f 52%, #06110b 100%);
+        color: var(--ink);
+        font-family:
+          'Noto Sans', 'DejaVu Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      }
+
+      .slide {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        width: 1920px;
+        height: 1080px;
+        padding: 78px 110px 64px;
+      }
+
+      .kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 14px;
+        margin: 0;
+        color: var(--accent);
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: 0.28em;
+        text-transform: uppercase;
+      }
+
+      .kicker::before {
+        content: '';
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: var(--accent);
+        box-shadow: 0 0 22px rgba(210, 171, 99, 0.65);
+      }
+
+      h1 {
+        margin: 20px 0 0;
+        max-width: 1380px;
+        font-family: 'DejaVu Serif', 'Noto Serif', Georgia, serif;
+        font-size: 68px;
+        font-weight: 700;
+        line-height: 1.06;
+        letter-spacing: -0.035em;
+      }
+
+      h1 em {
+        color: var(--accent);
+        font-style: normal;
+      }
+
+      .lede {
+        margin: 22px 0 0;
+        max-width: 1280px;
+        color: var(--muted);
+        font-size: 27px;
+        line-height: 1.45;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1.08fr 0.96fr 1.08fr;
+        gap: 26px;
+        margin-top: 58px;
+      }
+
+      .card {
+        position: relative;
+        overflow: hidden;
+        min-height: 478px;
+        padding: 30px 30px 28px;
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        background: linear-gradient(160deg, rgba(17, 38, 27, 0.92), rgba(12, 27, 20, 0.82));
+        box-shadow: 0 34px 90px -58px rgba(0, 0, 0, 0.95);
+      }
+
+      .card::after {
+        content: '';
+        position: absolute;
+        inset: 0 auto auto 0;
+        width: 100%;
+        height: 3px;
+        background: linear-gradient(90deg, var(--accent), transparent 72%);
+        opacity: 0.7;
+      }
+
+      .card-head {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 24px;
+      }
+
+      .num {
+        display: grid;
+        flex: 0 0 auto;
+        place-items: center;
+        width: 44px;
+        height: 44px;
+        border: 1px solid rgba(210, 171, 99, 0.45);
+        border-radius: 14px;
+        background: rgba(44, 37, 23, 0.55);
+        color: var(--accent);
+        font-size: 18px;
+        font-weight: 800;
+      }
+
+      h2 {
+        margin: 0;
+        font-size: 27px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+
+      .sub {
+        margin: 3px 0 0;
+        color: var(--muted);
+        font-size: 16px;
+        letter-spacing: 0.02em;
+      }
+
+      ul {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      li {
+        display: flex;
+        gap: 13px;
+        color: var(--muted);
+        font-size: 20px;
+        line-height: 1.38;
+      }
+
+      li strong {
+        color: var(--ink);
+        font-weight: 600;
+      }
+
+      .dot {
+        flex: 0 0 auto;
+        width: 8px;
+        height: 8px;
+        margin-top: 10px;
+        border-radius: 999px;
+        background: var(--accent);
+      }
+
+      .flow {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 28px;
+        padding-top: 22px;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 15px;
+        letter-spacing: 0.04em;
+      }
+
+      .chip {
+        padding: 7px 11px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: rgba(7, 19, 13, 0.55);
+        color: var(--ink);
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      .arrow {
+        color: var(--accent);
+        font-size: 18px;
+      }
+
+      .rrf {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 26px;
+        padding: 17px;
+        border: 1px solid rgba(210, 171, 99, 0.28);
+        border-radius: 16px;
+        background: rgba(44, 37, 23, 0.34);
+      }
+
+      .rrf-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: var(--muted);
+        font-size: 15px;
+      }
+
+      .bar {
+        height: 8px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #3f6b50, var(--success));
+      }
+
+      .bar.dense {
+        width: 152px;
+      }
+
+      .bar.sparse {
+        width: 98px;
+        background: linear-gradient(90deg, #8a6a2f, var(--accent));
+      }
+
+      .bar.rrf {
+        width: 184px;
+        background: linear-gradient(90deg, #6f5324, #e7c67f);
+      }
+
+      .footer {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        margin-top: auto;
+        padding-top: 34px;
+        color: var(--muted);
+        font-size: 16px;
+      }
+
+      .brand {
+        color: var(--ink);
+        font-family: 'DejaVu Serif', 'Noto Serif', Georgia, serif;
+        font-size: 21px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+
+      .separator {
+        width: 1px;
+        height: 22px;
+        background: var(--line);
+      }
+
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 13px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(17, 38, 27, 0.6);
+        color: var(--muted);
+        font-size: 14px;
+        letter-spacing: 0.05em;
+      }
+
+      .tag::before {
+        content: '';
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+        background: var(--success);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="slide" data-testid="architecture-slide">
+      <p class="kicker">Arquitectura en una frase</p>
+      <h1>
+        Monolito modular <em>hexagonal</em>, cola asíncrona y búsqueda <em>híbrida</em>.
+      </h1>
+      <p class="lede">
+        Cada módulo expone puertos y DTOs; los adaptadores viven en su borde. La ingesta pesada corre
+        en workers, y la recuperación combina señales densas y léxicas antes de responder.
+      </p>
+
+      <section class="grid">
+        <article class="card">
+          <div class="card-head">
+            <span class="num">01</span>
+            <div>
+              <h2>Módulos con puertos</h2>
+              <p class="sub">documents · ingestion · retrieval · chat</p>
+            </div>
+          </div>
+          <ul>
+            <li><span class="dot"></span><span><strong>Dominio puro</strong> sin FastAPI, Celery ni Qdrant.</span></li>
+            <li><span class="dot"></span><span><strong>Casos de uso</strong> que solo conocen contratos.</span></li>
+            <li><span class="dot"></span><span><strong>Factories</strong> eligen proveedor según entorno.</span></li>
+            <li><span class="dot"></span><span><strong>import-linter</strong> impide saltarse el borde.</span></li>
+          </ul>
+          <div class="flow">
+            <span class="chip">domain</span><span class="arrow">→</span>
+            <span class="chip">ports</span><span class="arrow">→</span>
+            <span class="chip">adapters</span>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-head">
+            <span class="num">02</span>
+            <div>
+              <h2>Cola asíncrona</h2>
+              <p class="sub">FastAPI responde; el worker procesa</p>
+            </div>
+          </div>
+          <ul>
+            <li><span class="dot"></span><span><strong>202 Accepted</strong> con jobId al subir el PDF.</span></li>
+            <li><span class="dot"></span><span><strong>Celery + Redis</strong> para parsing y embeddings.</span></li>
+            <li><span class="dot"></span><span><strong>SSE</strong> retransmite el progreso en vivo.</span></li>
+            <li><span class="dot"></span><span><strong>Reintentos</strong> con backoff y circuit breaker.</span></li>
+          </ul>
+          <div class="flow">
+            <span class="chip">POST /documents</span><span class="arrow">→</span>
+            <span class="chip">Redis</span><span class="arrow">→</span>
+            <span class="chip">worker</span>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-head">
+            <span class="num">03</span>
+            <div>
+              <h2>Búsqueda híbrida</h2>
+              <p class="sub">Denso + BM25, fusionados con RRF</p>
+            </div>
+          </div>
+          <ul>
+            <li><span class="dot"></span><span><strong>FastEmbed</strong> local para vectores y sparse.</span></li>
+            <li><span class="dot"></span><span><strong>Qdrant</strong> con Prefetch y FusionQuery RRF.</span></li>
+            <li><span class="dot"></span><span><strong>Umbral</strong> defensivo antes de llamar al LLM.</span></li>
+            <li><span class="dot"></span><span><strong>Citas</strong> con archivo, página y bbox.</span></li>
+          </ul>
+          <div class="rrf">
+            <div class="rrf-row"><span class="bar dense"></span><span>denso · semántico</span></div>
+            <div class="rrf-row"><span class="bar sparse"></span><span>sparse · BM25</span></div>
+            <div class="rrf-row"><span class="bar rrf"></span><span>RRF · ranking final</span></div>
+          </div>
+        </article>
+      </section>
+
+      <footer class="footer">
+        <span class="brand">Croupier</span>
+        <span class="separator"></span>
+        <span>Respuestas con las cartas sobre la mesa</span>
+        <span class="separator"></span>
+        <span class="tag">Docker Compose · Python 3.12 · Angular</span>
+      </footer>
+    </main>
+  </body>
+</html>

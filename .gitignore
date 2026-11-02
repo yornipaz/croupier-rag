@@ -25,6 +25,9 @@ data/
 *.pdf
 !docs/samples/*.pdf
 
+# Demo artifacts
+demo/out/
+
 # Editors / OS
 .idea/
 .vscode/
