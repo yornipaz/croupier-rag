@@ -1,0 +1,263 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Croupier RAG · Arquitectura de contenedores y módulos",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1050,
+      650
+    ],
+    "views": [
+      {
+        "id": "chat-path",
+        "label": "Ruta de consulta",
+        "focus": [
+          "browser",
+          "web",
+          "api",
+          "qdrant",
+          "deepseek"
+        ],
+        "note": "La pregunta entra por la web, se recupera contexto y solo entonces se invoca el LLM."
+      },
+      {
+        "id": "ingestion-path",
+        "label": "Ingesta asíncrona",
+        "focus": [
+          "web",
+          "api",
+          "redis",
+          "worker",
+          "qdrant",
+          "data"
+        ],
+        "note": "El worker ejecuta las etapas CPU-bound y publica progreso por Redis."
+      },
+      {
+        "id": "trust-boundaries",
+        "label": "Datos y confianza",
+        "focus": [
+          "api",
+          "redis",
+          "qdrant",
+          "data",
+          "deepseek"
+        ],
+        "note": "El PDF y sus crops son datos; DeepSeek solo recibe el contexto recuperado."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "browser",
+      "type": "external",
+      "label": "Navegador",
+      "sublabel": "Angular 22 · signals",
+      "pos": [
+        40,
+        300
+      ],
+      "size": [
+        130,
+        64
+      ]
+    },
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "Web Nginx",
+      "sublabel": ":4200 · SPA + /api",
+      "pos": [
+        220,
+        300
+      ],
+      "size": [
+        130,
+        64
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "API FastAPI",
+      "sublabel": ":8000 · REST + SSE",
+      "pos": [
+        410,
+        300
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "monolito modular"
+    },
+    {
+      "id": "deepseek",
+      "type": "external",
+      "label": "DeepSeek API",
+      "sublabel": "deepseek-flash",
+      "pos": [
+        410,
+        100
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "chat JSON"
+    },
+    {
+      "id": "qdrant",
+      "type": "database",
+      "label": "Qdrant",
+      "sublabel": "denso + BM25 · RRF",
+      "pos": [
+        650,
+        303
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "redis",
+      "type": "messagebus",
+      "label": "Redis",
+      "sublabel": "jobs · SSE · historial",
+      "pos": [
+        410,
+        473
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "worker",
+      "type": "backend",
+      "label": "Worker Celery",
+      "sublabel": "ingesta · FastEmbed",
+      "pos": [
+        650,
+        470
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "CPU-bound"
+    },
+    {
+      "id": "data",
+      "type": "database",
+      "label": "Volumen data",
+      "sublabel": "PDF · imágenes · crops",
+      "pos": [
+        870,
+        473
+      ],
+      "size": [
+        140,
+        64
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "docker compose · red interna",
+      "wraps": [
+        "web",
+        "api",
+        "worker",
+        "redis",
+        "qdrant",
+        "data"
+      ],
+      "pad": 22
+    }
+  ],
+  "connections": [
+    {
+      "id": "browser-web",
+      "from": "browser",
+      "to": "web",
+      "label": "HTTPS",
+      "variant": "emphasis"
+    },
+    {
+      "id": "web-api",
+      "from": "web",
+      "to": "api",
+      "label": "/api/v1",
+      "variant": "emphasis"
+    },
+    {
+      "id": "api-deepseek",
+      "from": "api",
+      "to": "deepseek",
+      "label": "prompt + JSON",
+      "variant": "emphasis",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "route": "straight"
+    },
+    {
+      "id": "api-qdrant",
+      "from": "api",
+      "to": "qdrant",
+      "label": "retrieval",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left",
+      "route": "straight"
+    },
+    {
+      "id": "api-redis",
+      "from": "api",
+      "to": "redis",
+      "label": "jobs + historial",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight",
+      "labelAt": [
+        485,
+        421
+      ]
+    },
+    {
+      "id": "redis-worker",
+      "from": "redis",
+      "to": "worker",
+      "label": "deliver job",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left",
+      "route": "straight"
+    },
+    {
+      "id": "worker-qdrant",
+      "from": "worker",
+      "to": "qdrant",
+      "label": "upsert chunks",
+      "variant": "emphasis",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "route": "straight"
+    },
+    {
+      "id": "worker-data",
+      "from": "worker",
+      "to": "data",
+      "label": "read/write",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "left",
+      "route": "straight"
+    }
+  ]
+}

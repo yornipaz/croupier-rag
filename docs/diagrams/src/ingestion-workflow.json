@@ -1,0 +1,280 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Croupier RAG · Ingesta de un manual PDF",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1120,
+      700
+    ],
+    "views": [
+      {
+        "id": "happy-path",
+        "label": "Subida a COMPLETED",
+        "focus": [
+          "upload",
+          "accept",
+          "queued",
+          "parse",
+          "embed",
+          "indexed"
+        ],
+        "note": "La API acepta el archivo, el worker procesa por etapas y el job termina en COMPLETED."
+      },
+      {
+        "id": "progress-path",
+        "label": "Progreso en vivo",
+        "focus": [
+          "queued",
+          "progress",
+          "parse",
+          "embed"
+        ],
+        "note": "El estado y los eventos SSE viven en Redis; la API los retransmite al navegador."
+      },
+      {
+        "id": "failure-path",
+        "label": "Fallo y recuperación",
+        "focus": [
+          "parse",
+          "embed",
+          "failed"
+        ],
+        "note": "Un error deja un estado FAILED legible; Celery decide si reintenta o cierra el job."
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "entrada",
+      "label": "Entrada"
+    },
+    {
+      "id": "estado",
+      "label": "Estado y SSE"
+    },
+    {
+      "id": "worker",
+      "label": "Procesamiento"
+    },
+    {
+      "id": "storage",
+      "label": "Persistencia"
+    }
+  ],
+  "phases": [
+    {
+      "id": "accept",
+      "label": "Aceptar",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "queue",
+      "label": "Encolar",
+      "fromCol": 2,
+      "toCol": 2,
+      "variant": "emphasis"
+    },
+    {
+      "id": "process",
+      "label": "Procesar",
+      "fromCol": 3,
+      "toCol": 4,
+      "variant": "emphasis"
+    },
+    {
+      "id": "publish",
+      "label": "Publicar",
+      "fromCol": 5,
+      "toCol": 5,
+      "variant": "dashed"
+    }
+  ],
+  "groups": [
+    {
+      "id": "request",
+      "label": "Request HTTP",
+      "lane": "entrada",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "pipeline",
+      "label": "Etapas CPU-bound",
+      "lane": "worker",
+      "fromCol": 3,
+      "toCol": 4,
+      "variant": "emphasis"
+    },
+    {
+      "id": "failure",
+      "label": "Cierre o reintento",
+      "lane": "worker",
+      "fromCol": 4,
+      "toCol": 5,
+      "variant": "security"
+    }
+  ],
+  "mainPath": [
+    "upload",
+    "accept",
+    "queued",
+    "parse",
+    "embed",
+    "indexed"
+  ],
+  "nodes": [
+    {
+      "id": "upload",
+      "lane": "entrada",
+      "col": 0,
+      "type": "frontend",
+      "label": "Subir PDF",
+      "sublabel": "drag & drop · máx. 50 MB",
+      "width": 136
+    },
+    {
+      "id": "accept",
+      "lane": "entrada",
+      "col": 1,
+      "type": "backend",
+      "label": "POST /documents",
+      "sublabel": "202 jobId · documentId",
+      "tag": "respuesta rápida",
+      "width": 144
+    },
+    {
+      "id": "queued",
+      "lane": "estado",
+      "col": 2,
+      "type": "messagebus",
+      "label": "Job en Redis",
+      "sublabel": "PENDING · progreso",
+      "width": 136
+    },
+    {
+      "id": "parse",
+      "lane": "worker",
+      "col": 3,
+      "type": "backend",
+      "label": "Parse + layout",
+      "sublabel": "texto · tablas · imágenes",
+      "width": 144
+    },
+    {
+      "id": "embed",
+      "lane": "worker",
+      "col": 4,
+      "type": "backend",
+      "label": "Chunk + embeddings",
+      "sublabel": "FastEmbed · BM25",
+      "tag": "por lotes",
+      "width": 150
+    },
+    {
+      "id": "indexed",
+      "lane": "storage",
+      "col": 5,
+      "type": "database",
+      "label": "Qdrant + COMPLETED",
+      "sublabel": "chunks · 100%",
+      "width": 150
+    },
+    {
+      "id": "data",
+      "lane": "storage",
+      "col": 3,
+      "type": "database",
+      "label": "Volumen data",
+      "sublabel": "PDF · imágenes",
+      "width": 132
+    },
+    {
+      "id": "progress",
+      "lane": "estado",
+      "col": 4,
+      "type": "messagebus",
+      "label": "SSE de progreso",
+      "sublabel": "GET /jobs/{id}/events",
+      "width": 150
+    },
+    {
+      "id": "failed",
+      "lane": "worker",
+      "col": 5,
+      "type": "security",
+      "label": "FAILED",
+      "sublabel": "error legible",
+      "tag": "retry o cierre",
+      "width": 132
+    }
+  ],
+  "edges": [
+    {
+      "id": "upload-accept",
+      "from": "upload",
+      "to": "accept",
+      "label": "multipart PDF",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "accept-queued",
+      "from": "accept",
+      "to": "queued",
+      "label": "encola",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "queued-parse",
+      "from": "queued",
+      "to": "parse",
+      "label": "worker recibe",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "parse-embed",
+      "from": "parse",
+      "to": "embed",
+      "label": "chunks",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "embed-indexed",
+      "from": "embed",
+      "to": "indexed",
+      "label": "upsert híbrido",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "parse-data",
+      "from": "parse",
+      "to": "data",
+      "label": "guarda imágenes",
+      "variant": "dashed",
+      "role": "branch"
+    },
+    {
+      "id": "queued-progress",
+      "from": "queued",
+      "to": "progress",
+      "label": "eventos",
+      "variant": "dashed",
+      "role": "async"
+    },
+    {
+      "id": "embed-failed",
+      "from": "embed",
+      "to": "failed",
+      "label": "timeout / error",
+      "variant": "security",
+      "role": "error"
+    }
+  ]
+}

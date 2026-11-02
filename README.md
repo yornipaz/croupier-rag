@@ -19,9 +19,9 @@ docker compose up --build
 | Recurso | URL |
 | --- | --- |
 | Web | http://localhost:4200 |
-| Health | http://localhost:8000/health |
-| Swagger UI | http://localhost:8000/docs |
-| OpenAPI | http://localhost:8000/openapi.json |
+| Health | http://localhost:8000/v1/health |
+| Swagger UI | http://localhost:8000/v1/docs |
+| OpenAPI | http://localhost:8000/v1/openapi.json |
 | Qdrant dashboard | http://localhost:6333/dashboard |
 
 Sin `.env` también arranca: la API responde y reporta el LLM como no configurado.
@@ -30,6 +30,14 @@ Servicios Docker: `api`, `worker`, `redis`, `qdrant`, `web`. La web se sirve con
 proxifica `/api/*` al backend (`/api/v1/...` → `http://api:8000/v1/...`), incluyendo SSE para
 la línea de tiempo de ingesta. En desarrollo también puedes ejecutar `cd apps/web && npm start`;
 arranca con `useMock: true` para probar el chat sin depender del LLM.
+
+## Documentación
+
+- [Arquitectura completa](docs/architecture.md): contenedores, módulos, contratos, flujos,
+  proveedores de IA, operación y troubleshooting.
+- [Diagramas interactivos](docs/diagrams/README.md): arquitectura, ingesta, consulta y ciclo de
+  vida de un job como HTML autocontenido con temas, búsqueda, foco y vistas guiadas.
+- [ADRs](docs/adr/README.md): decisiones de monolito modular, Qdrant híbrido y RRF.
 
 ## Estructura
 
@@ -50,7 +58,10 @@ arranca con `useMock: true` para probar el chat sin depender del LLM.
 │   └── web/                  # Angular 22 + signals + Tailwind
 │       ├── Dockerfile        # multi-stage: build + Nginx
 │       └── nginx.conf        # SPA fallback + proxy /api y SSE
-├── docs/adr/                 # Decisiones de arquitectura
+├── docs/
+│   ├── architecture.md       # Documento principal de arquitectura
+│   ├── adr/                  # Decisiones de arquitectura
+│   └── diagrams/             # HTML interactivos + specs Archify
 ├── eval/                     # Plan del conjunto de evaluación
 ├── docker-compose.yml
 ├── Makefile
@@ -74,12 +85,15 @@ Variables principales:
 | `REDIS_URL` | `redis://localhost:6379/0` | Estado de jobs y broker Celery. |
 | `QDRANT_URL` | `http://localhost:6333` | Vector store. |
 | `DATA_DIR` | `./data` | PDFs, metadatos, imágenes extraídas y caché de crops. |
-| `LLM_PROVIDER` | `gemini` | `gemini`, `ollama` u `openai`. |
+| `LLM_PROVIDER` | `gemini` | `gemini`, `ollama`, `openai` o `deepseek`. |
 | `EMBEDDING_PROVIDER` | `fastembed` | `fastembed`, `ollama` o `gemini`. |
 | `EMBEDDING_MODEL` | `sentence-transformers/paraphrase-multilingual-mpnet-base-v2` | Modelo denso; con FastEmbed debe estar en `list_supported_models()`. |
 | `SPARSE_EMBEDDING_LANGUAGE` | `spanish` | Idioma del stemmer/stopwords de BM25. |
 | `GEMINI_API_KEY` | vacío | Necesaria con `LLM_PROVIDER=gemini` o `EMBEDDING_PROVIDER=gemini`. |
 | `OPENAI_API_KEY` | vacío | Opcional, con `LLM_PROVIDER=openai`. |
+| `DEEPSEEK_API_KEY` | vacío | Necesaria con `LLM_PROVIDER=deepseek`. |
+| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | Endpoint OpenAI-compatible de DeepSeek. |
+| `DEEPSEEK_THINKING_ENABLED` | `false` | Desactiva el modo thinking para respuestas RAG más rápidas. |
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama local. |
 | `RETRIEVAL_MIN_SCORE` | `0.30` | Umbral defensivo sobre similitud densa; si no se alcanza, chat no llama al LLM. |
 | `CHAT_HISTORY_TURNS` | `6` | Pares de turnos previos usados para reescribir y responder. |
@@ -143,7 +157,35 @@ varios minutos en CPU (por ejemplo, 98 páginas / 190 chunks ≈ 5 min). Si camb
 `.env`, recrea el worker con `docker compose up -d --force-recreate worker`; `restart` no vuelve
 a leer `env_file`.
 
+### Usar DeepSeek para el chat
+
+DeepSeek expone una API compatible con OpenAI Chat Completions. El backend incluye un adapter
+`DeepSeekLLM`; para cambiar solo el chat (las embeddings siguen siendo locales con FastEmbed):
+
+```dotenv
+LLM_PROVIDER=deepseek
+LLM_MODEL=deepseek-flash
+DEEPSEEK_API_KEY=sk-...
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_THINKING_ENABLED=false
+EMBEDDING_PROVIDER=fastembed
+```
+
+`deepseek-flash` es el id oficial de DeepSeek para DeepSeek-V4.1-Flash. Si usas un gateway
+distinto (por ejemplo Cloudflare), cambia `DEEPSEEK_BASE_URL` y `LLM_MODEL` por los de ese
+proveedor. Después recrea la API para que lea el `.env`:
+
+```bash
+docker compose up -d --force-recreate api
+```
+
+En los logs de arranque de la API debe aparecer `llm_provider=deepseek llm_configured=True`. Si el
+endpoint o la clave son incorrectos, el chat devuelve un error tipado y no filtra la traza del
+proveedor.
+
 ## Endpoints actuales
+
+Rutas relativas a `API_PREFIX`; el `.env` de demostración usa `/v1`.
 
 | Método | Ruta | Descripción |
 | --- | --- | --- |
@@ -159,8 +201,8 @@ a leer `env_file`.
 | `POST` | `/chat/ask` | Respuesta defensiva con fuentes citadas e imágenes; `?debug=true` añade trazas. |
 | `GET` | `/docs` | Swagger UI ordenada por tags. |
 
-`POST /chat/ask` necesita un proveedor LLM configurado (`GEMINI_API_KEY`, `OPENAI_API_KEY` u
-Ollama). Sin LLM, el guard de baja relevancia sigue respondiendo "No tengo información suficiente…"
+`POST /chat/ask` necesita un proveedor LLM configurado (`GEMINI_API_KEY`, `OPENAI_API_KEY`,
+`DEEPSEEK_API_KEY` u Ollama). Sin LLM, el guard de baja relevancia sigue respondiendo "No tengo información suficiente…"
 sin invocarlo; una consulta con contexto devuelve `503 llm_not_configured`.
 
 La primera ingesta descarga el modelo denso de FastEmbed en el worker; en Docker queda cacheado en

@@ -1,0 +1,177 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Croupier RAG · Consulta con evidencia",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1050,
+      560
+    ],
+    "column_fit": "spread",
+    "views": [
+      {
+        "id": "retrieve",
+        "label": "Recuperar contexto",
+        "focus": [
+          "browser",
+          "api",
+          "retrieval",
+          "qdrant"
+        ],
+        "note": "La consulta se resuelve con búsqueda densa + BM25 y fusión RRF."
+      },
+      {
+        "id": "generate",
+        "label": "Generar con contexto",
+        "focus": [
+          "api",
+          "deepseek"
+        ],
+        "note": "El guard decide antes de invocar DeepSeek; el LLM recibe solo el contexto recuperado."
+      },
+      {
+        "id": "evidence",
+        "label": "Respuesta con evidencia",
+        "focus": [
+          "api",
+          "browser"
+        ],
+        "note": "La API valida JSON, citas y fuentes antes de responder."
+      }
+    ]
+  },
+  "participants": [
+    {
+      "id": "browser",
+      "type": "external",
+      "label": "Navegador",
+      "sublabel": "Angular"
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "API FastAPI",
+      "sublabel": "chat/ask"
+    },
+    {
+      "id": "retrieval",
+      "type": "backend",
+      "label": "Retrieval",
+      "sublabel": "híbrido"
+    },
+    {
+      "id": "qdrant",
+      "type": "database",
+      "label": "Qdrant",
+      "sublabel": "RRF"
+    },
+    {
+      "id": "deepseek",
+      "type": "external",
+      "label": "DeepSeek API",
+      "sublabel": "deepseek-flash"
+    }
+  ],
+  "segments": [
+    {
+      "from": 150,
+      "to": 360,
+      "label": "Recuperar"
+    },
+    {
+      "from": 370,
+      "to": 410,
+      "label": "Decidir"
+    },
+    {
+      "from": 420,
+      "to": 500,
+      "label": "Generar + validar"
+    }
+  ],
+  "messages": [
+    {
+      "from": "browser",
+      "to": "api",
+      "y": 180,
+      "label": "POST /chat/ask",
+      "variant": "emphasis"
+    },
+    {
+      "from": "api",
+      "to": "retrieval",
+      "y": 220,
+      "label": "retrieve(query, docId)",
+      "variant": "emphasis"
+    },
+    {
+      "from": "retrieval",
+      "to": "qdrant",
+      "y": 260,
+      "label": "dense + BM25 · RRF",
+      "variant": "emphasis"
+    },
+    {
+      "from": "qdrant",
+      "to": "retrieval",
+      "y": 300,
+      "label": "chunks + scores",
+      "variant": "return"
+    },
+    {
+      "from": "retrieval",
+      "to": "api",
+      "y": 340,
+      "label": "contexto + topScore",
+      "variant": "return"
+    },
+    {
+      "from": "api",
+      "to": "deepseek",
+      "y": 390,
+      "label": "score ≥ umbral · prompt",
+      "variant": "emphasis"
+    },
+    {
+      "from": "deepseek",
+      "to": "api",
+      "y": 430,
+      "label": "answer JSON",
+      "variant": "return"
+    },
+    {
+      "from": "api",
+      "to": "browser",
+      "y": 470,
+      "label": "200 validated answer + sources + images",
+      "variant": "return"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "api",
+      "from": 174,
+      "to": 476,
+      "type": "backend"
+    },
+    {
+      "participant": "retrieval",
+      "from": 214,
+      "to": 346,
+      "type": "backend"
+    },
+    {
+      "participant": "qdrant",
+      "from": 254,
+      "to": 306,
+      "type": "database"
+    },
+    {
+      "participant": "deepseek",
+      "from": 384,
+      "to": 436,
+      "type": "external"
+    }
+  ]
+}
