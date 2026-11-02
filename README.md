@@ -3,9 +3,9 @@
 RAG multimodal para manuales técnicos en PDF: ingestión de texto, tablas y diagramas, recuperación
 híbrida y respuestas con fuente (archivo, página, bbox) e imagen relevante.
 
-> **Estado: pipeline RAG completo (sin UI).** La API sube PDFs, los procesa en el worker
+> **Estado: pipeline RAG completo + UI Angular.** La API sube PDFs, los procesa en el worker
 > (texto, tablas, imágenes y captions), indexa chunks híbridos en Qdrant, recupera contexto con
-> fuentes e imágenes y responde con citas validadas. La UI Angular queda para la siguiente fase.
+> fuentes e imágenes y responde con citas validadas. La web incluye modo demo con `useMock`.
 
 ## Arranque (Docker)
 
@@ -25,7 +25,9 @@ docker compose up --build
 
 Sin `.env` también arranca: la API responde y reporta el LLM como no configurado.
 
-Servicios: `api`, `worker`, `redis`, `qdrant`. `apps/web` queda reservado (vacío) para la fase de UI.
+Servicios Docker: `api`, `worker`, `redis`, `qdrant`. La web Angular se ejecuta con
+`cd apps/web && npm start`; en desarrollo arranca con `useMock: true` para probar el chat sin
+depender del LLM.
 
 ## Estructura
 
@@ -43,7 +45,7 @@ Servicios: `api`, `worker`, `redis`, `qdrant`. `apps/web` queda reservado (vací
 │   │   ├── tests/
 │   │   ├── Dockerfile        # multi-stage
 │   │   └── .importlinter
-│   └── web/                  # vacío por ahora
+│   └── web/                  # Angular 22 + signals + Tailwind
 ├── docs/adr/                 # Decisiones de arquitectura
 ├── eval/                     # Plan del conjunto de evaluación
 ├── docker-compose.yml
@@ -96,6 +98,21 @@ make quality     # todo
 
 Los tests no usan red: health se prueba con probes fake y `dependency_overrides`.
 
+## Web
+
+```bash
+cd apps/web
+npm install
+npm start          # http://localhost:4200/chat
+npm run gen:api    # tipos desde OpenAPI
+npm run lint
+npm run build
+```
+
+En desarrollo (`environment.ts`) `useMock: true` permite chatear sin backend: incluye una
+respuesta con fuentes e imagen y otra con estado "sin información suficiente". El build de
+producción usa `environment.production.ts` con `useMock: false` y el cliente HTTP real.
+
 ## Endpoints actuales
 
 | Método | Ruta | Descripción |
@@ -143,5 +160,5 @@ adapter de Qdrant. Así el puerto que consume retrieval/chat ya incluye timeout,
 2. ✅ `ingestion`: parser por bloques, chunking por layout, ImageLinker y jobs SSE.
 3. ✅ `ai` + `vector_store`: Gemini/Ollama/fastembed y Qdrant híbrido con RRF.
 4. ✅ `retrieval` + `chat`: umbral defensivo, citas `[S1]` y salida JSON validada.
-5. `apps/web`: Angular standalone + signals + Tailwind.
+5. ✅ `apps/web`: Angular standalone + signals + Tailwind, modo demo y temas claro/oscuro.
 6. Opcional: `POST /chat/ask/stream` con SSE incremental.
