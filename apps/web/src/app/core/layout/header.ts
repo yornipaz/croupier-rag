@@ -7,6 +7,7 @@ import { Icon } from '../../shared/ui/icon';
 import { LogoMark } from '../../shared/ui/logo-mark';
 import { AuditModeService } from '../services/audit-mode.service';
 import { ShellStateService } from '../services/shell-state.service';
+import { ShortcutsService } from '../services/shortcuts.service';
 import { ThemeService } from '../services/theme.service';
 
 @Component({
@@ -39,14 +40,22 @@ import { ThemeService } from '../services/theme.service';
       <div class="hidden min-w-0 items-center gap-3 lg:flex">
         <span class="size-1.5 rounded-full bg-accent"></span>
         <div class="min-w-0">
-          <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted">
-            Croupier
-          </p>
+          <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted">Croupier</p>
           <p class="truncate text-[13px] font-semibold text-ink">Mesa de consulta técnica</p>
         </div>
       </div>
 
       <div class="ml-auto flex items-center gap-1.5 sm:gap-2">
+        <button
+          type="button"
+          class="inline-flex size-9 items-center justify-center rounded-xl border border-line/80 font-display text-sm font-semibold text-muted transition hover:bg-surface-2 hover:text-ink"
+          (click)="shortcuts.toggle()"
+          aria-label="Ver atajos de teclado"
+          title="Atajos de teclado (?)"
+        >
+          ?
+        </button>
+
         @if (isMock) {
           <span
             class="hidden items-center gap-1.5 rounded-full border border-accent/25 bg-accent-soft/35 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-accent-strong sm:inline-flex"
@@ -91,6 +100,7 @@ export class Header {
   private readonly theme = inject(ThemeService);
   private readonly audit = inject(AuditModeService);
   private readonly shell = inject(ShellStateService);
+  protected readonly shortcuts = inject(ShortcutsService);
 
   protected readonly isMock = environment.useMock;
   protected readonly dark = this.theme.dark;
