@@ -22,6 +22,8 @@ _NAMESPACE = uuid.NAMESPACE_URL
 @dataclass(frozen=True, slots=True)
 class _RenderedImage:
     image_id: str
+    page: int
+    bbox: BBox
     content: bytes
 
 
@@ -52,7 +54,13 @@ class PyMuPDFParser:
         if rendered:
             await asyncio.gather(
                 *(
-                    self._images.save_image(document_id, image.image_id, image.content)
+                    self._images.save_image(
+                        document_id,
+                        image.image_id,
+                        image.content,
+                        page=image.page,
+                        bbox=image.bbox,
+                    )
                     for image in rendered
                 )
             )
@@ -152,7 +160,14 @@ class PyMuPDFParser:
                 )
                 continue
             blocks.append(ParsedBlock(type="image", bbox=bbox, image_id=image_id))
-            rendered.append(_RenderedImage(image_id=image_id, content=content))
+            rendered.append(
+                _RenderedImage(
+                    image_id=image_id,
+                    page=page_number,
+                    bbox=bbox,
+                    content=content,
+                )
+            )
         return blocks, rendered
 
     def _text_blocks(

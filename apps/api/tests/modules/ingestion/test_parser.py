@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pymupdf
@@ -81,3 +82,10 @@ async def test_parser_extracts_text_table_and_images(tmp_path: Path) -> None:
     image_path = data_dir / "images" / "doc-1" / f"{image_id}.png"
     assert image_path.exists()
     assert image_path.read_bytes().startswith(b"\x89PNG")
+    metadata = json.loads(
+        (data_dir / "images" / "doc-1" / f"{image_id}.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert metadata["page"] == 1
+    assert metadata["bbox"] == list(image_blocks[0].bbox)

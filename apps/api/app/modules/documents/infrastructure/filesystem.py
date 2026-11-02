@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import shutil
 import tempfile
 from pathlib import Path
 
+from app.shared.chunks import BBox
 from app.shared.errors import DocumentNotFoundError, UpstreamError
 from app.shared.identifiers import require_safe_id
 
@@ -44,12 +46,36 @@ class FileSystemStorage:
                 details={"errorType": type(exc).__name__},
             ) from exc
 
-    async def save_image(self, document_id: str, image_id: str, content: bytes) -> Path:
+    async def save_image(
+        self,
+        document_id: str,
+        image_id: str,
+        content: bytes,
+        *,
+        page: int,
+        bbox: BBox,
+    ) -> Path:
         require_safe_id(document_id, kind="document id")
         require_safe_id(image_id, kind="image id")
-        path = self._images_dir / document_id / f"{image_id}.png"
+        image_dir = self._images_dir / document_id
+        path = image_dir / f"{image_id}.png"
+        metadata = json.dumps(
+            {
+                "image_id": image_id,
+                "document_id": document_id,
+                "page": page,
+                "bbox": list(bbox),
+            },
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
         try:
             await asyncio.to_thread(self._atomic_write, path, content)
+            await asyncio.to_thread(
+                self._atomic_write,
+                image_dir / f"{image_id}.json",
+                metadata,
+            )
         except OSError as exc:
             raise UpstreamError(
                 "Could not persist an extracted image",
