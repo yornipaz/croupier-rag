@@ -1,0 +1,54 @@
+[importlinter]
+root_package = app
+include_external_packages = True
+
+# Rule 1: domain is pure Python (stdlib + pydantic only).
+[importlinter:contract:domain-purity]
+name = Domain is pure Python
+type = forbidden
+source_modules =
+    app.modules.*.domain
+forbidden_modules =
+    fastapi
+    celery
+    redis
+    qdrant_client
+    fastembed
+    pymupdf
+    fitz
+    httpx
+    tenacity
+    structlog
+    google
+    openai
+    app.bootstrap
+    app.config
+    app.main
+    app.worker
+    app.shared.exception_handlers
+    app.shared.logging
+    app.shared.middleware
+    app.modules.*.application
+    app.modules.*.infrastructure
+    app.modules.*.presentation
+
+# Rule 2: use cases depend only on ports, never on adapters.
+[importlinter:contract:use-cases-not-adapters]
+name = Use cases never import infrastructure adapters
+type = forbidden
+source_modules =
+    app.modules.*.application
+forbidden_modules =
+    app.modules.*.infrastructure
+
+# Rule 3: a module only imports ports/DTOs from another module, never adapters.
+# module.py (composition root) is out of scope because it wires its own adapters.
+[importlinter:contract:no-cross-module-adapters]
+name = Domain, application and presentation never import adapters
+type = forbidden
+source_modules =
+    app.modules.*.domain
+    app.modules.*.application
+    app.modules.*.presentation
+forbidden_modules =
+    app.modules.*.infrastructure
