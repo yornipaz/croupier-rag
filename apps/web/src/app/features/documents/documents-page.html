@@ -1,0 +1,118 @@
+<div class="h-full overflow-y-auto">
+  <div class="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-accent">
+          Biblioteca
+        </p>
+        <h1 class="font-display mt-2 text-3xl font-semibold tracking-[-0.03em] text-ink sm:text-4xl">
+          Documentos indexados
+        </h1>
+        <p class="mt-2 max-w-xl text-sm leading-6 text-muted">
+          Manuales que Croupier puede citar. Elige uno para acotar la conversación o
+          consulta sobre toda la biblioteca.
+        </p>
+      </div>
+      <span
+        class="inline-flex w-fit items-center gap-2 rounded-full border border-line/80 bg-surface/70 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted"
+      >
+        <app-icon name="layers" [size]="13" class="text-accent" />
+        {{ documents().length }} documentos
+      </span>
+    </div>
+
+    @if (loading()) {
+      <div class="mt-8 grid gap-4 md:grid-cols-2" aria-live="polite" aria-busy="true">
+        @for (item of [1, 2, 3, 4]; track item) {
+          <div class="h-48 animate-pulse rounded-2xl border border-line/70 bg-surface/60"></div>
+        }
+      </div>
+    } @else if (error()) {
+      <div
+        class="mt-8 flex flex-col gap-3 rounded-2xl border border-danger/30 bg-danger/10 p-5 text-sm text-danger sm:flex-row sm:items-center"
+        role="alert"
+      >
+        <span class="flex size-9 items-center justify-center rounded-xl bg-danger/10">
+          <app-icon name="warning" [size]="17" />
+        </span>
+        <p class="min-w-0 flex-1">{{ error() }}</p>
+        <button
+          type="button"
+          class="inline-flex items-center justify-center gap-2 rounded-xl border border-danger/30 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] transition hover:bg-danger/10"
+          (click)="retry()"
+        >
+          <app-icon name="refresh" [size]="14" />
+          Reintentar
+        </button>
+      </div>
+    } @else if (documents().length === 0) {
+      <div class="mt-10 rounded-3xl border border-dashed border-line bg-surface/45 px-6 py-14 text-center">
+        <span class="mx-auto flex size-14 items-center justify-center rounded-2xl border border-line bg-surface text-muted">
+          <app-icon name="document" [size]="26" />
+        </span>
+        <h2 class="font-display mt-4 text-xl font-semibold text-ink">Todavía no hay manuales</h2>
+        <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-muted">
+          Sube un PDF desde la API y aparecerá aquí cuando la ingesta termine.
+        </p>
+      </div>
+    } @else {
+      <div class="mt-8 grid gap-4 md:grid-cols-2">
+        @for (document of documents(); track document.id) {
+          <article
+            class="group flex min-h-48 flex-col rounded-2xl border bg-surface/75 p-5 transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-soft"
+            [class.border-accent]="selectedId() === document.id"
+            [class.border-line]="selectedId() !== document.id"
+          >
+            <div class="flex items-start gap-3">
+              <span
+                class="flex size-11 shrink-0 items-center justify-center rounded-xl border border-line/80 bg-surface-2/70 text-accent"
+              >
+                <app-icon name="document" [size]="20" />
+              </span>
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-[14px] font-semibold text-ink" [title]="document.filename">
+                  {{ document.filename }}
+                </p>
+                <p class="mt-1 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-success">
+                  <span class="size-1.5 rounded-full bg-success"></span>
+                  Indexado
+                </p>
+              </div>
+              <span
+                class="rounded-md border border-line/80 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-muted"
+              >
+                PDF
+              </span>
+            </div>
+
+            <dl class="mt-5 grid grid-cols-3 gap-2 text-[10px] text-muted">
+              <div class="rounded-xl bg-surface-2/60 px-2.5 py-2">
+                <dt class="uppercase tracking-wider">Páginas</dt>
+                <dd class="mt-0.5 text-sm font-semibold text-ink">{{ document.pages ?? '—' }}</dd>
+              </div>
+              <div class="rounded-xl bg-surface-2/60 px-2.5 py-2">
+                <dt class="uppercase tracking-wider">Chunks</dt>
+                <dd class="mt-0.5 text-sm font-semibold text-ink">{{ document.chunks ?? '—' }}</dd>
+              </div>
+              <div class="rounded-xl bg-surface-2/60 px-2.5 py-2">
+                <dt class="uppercase tracking-wider">Alta</dt>
+                <dd class="mt-0.5 truncate text-[11px] font-semibold text-ink">
+                  {{ formatDate(document.createdAt) }}
+                </dd>
+              </div>
+            </dl>
+
+            <button
+              type="button"
+              class="mt-4 inline-flex items-center gap-2 self-start rounded-xl border border-line/80 px-3 py-2 text-[11px] font-semibold text-accent transition hover:border-accent/40 hover:bg-accent-soft/35"
+              (click)="ask(document)"
+            >
+              Preguntar sobre este manual
+              <app-icon name="arrow-right" [size]="13" />
+            </button>
+          </article>
+        }
+      </div>
+    }
+  </div>
+</div>
