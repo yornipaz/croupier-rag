@@ -32,6 +32,8 @@ services:
       QDRANT_URL: http://qdrant:6333
       DATA_DIR: /data
       ENV: ${ENV:-local}
+      HF_HOME: /data/cache/huggingface
+      FASTEMBED_CACHE_PATH: /data/cache/fastembed
     volumes:
       - data:/data
     ports:
@@ -47,7 +49,7 @@ services:
           "CMD",
           "python",
           "-c",
-          "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status == 200 else 1)",
+          "import os,urllib.request,sys; p=os.getenv('API_PREFIX','').strip('/'); u=('http://localhost:8000/' + (p + '/' if p else '') + 'health'); sys.exit(0 if urllib.request.urlopen(u, timeout=3).status == 200 else 1)",
         ]
       interval: 10s
       timeout: 5s
@@ -75,9 +77,10 @@ services:
       QDRANT_URL: http://qdrant:6333
       DATA_DIR: /data
       ENV: ${ENV:-local}
+      HF_HOME: /data/cache/huggingface
+      FASTEMBED_CACHE_PATH: /data/cache/fastembed
     volumes:
       - data:/data
-      - fastembed_cache:/home/app/.cache
     depends_on:
       redis:
         condition: service_healthy
@@ -91,4 +94,3 @@ volumes:
   data:
   redis_data:
   qdrant_data:
-  fastembed_cache:
