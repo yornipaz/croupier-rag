@@ -30,3 +30,4 @@ data/
 .vscode/
 .DS_Store
 .playwright-mcp/
+docs/diagrams/*.visual-check.*
