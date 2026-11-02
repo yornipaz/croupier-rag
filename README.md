@@ -134,6 +134,15 @@ La UI incluye:
   conversación, `Esc` cierra modales/paneles y `?` abre la ayuda de teclado.
 - Estados vacíos propios, transiciones sutiles y respeto a `prefers-reduced-motion`.
 
+### Embeddings locales
+
+Con `EMBEDDING_PROVIDER=fastembed` el modelo ONNX se carga una vez por proceso del worker y se
+reutiliza entre jobs y reintentos. No requiere API key ni conexión a un proveedor externo.
+`EMBEDDING_TIMEOUT_S` es el límite por lote, no por documento: un manual grande puede tardar
+varios minutos en CPU (por ejemplo, 98 páginas / 190 chunks ≈ 5 min). Si cambias variables del
+`.env`, recrea el worker con `docker compose up -d --force-recreate worker`; `restart` no vuelve
+a leer `env_file`.
+
 ## Endpoints actuales
 
 | Método | Ruta | Descripción |

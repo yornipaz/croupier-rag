@@ -94,7 +94,7 @@ class Settings(BaseSettings):
 
     # Resilience (seconds unless stated otherwise)
     llm_timeout_s: float = Field(default=60.0, gt=0)
-    embedding_timeout_s: float = Field(default=30.0, gt=0)
+    embedding_timeout_s: float = Field(default=90.0, gt=0)
     vector_store_timeout_s: float = Field(default=15.0, gt=0)
     http_max_retries: int = Field(default=3, ge=0, le=10)
     http_retry_base_s: float = Field(default=0.4, gt=0)
@@ -142,7 +142,9 @@ class Settings(BaseSettings):
         prefix = "/" + value.strip().strip("/")
         return "" if prefix == "/" else prefix
 
-    @field_validator("gemini_api_key", "openai_api_key", "qdrant_api_key", mode="before")
+    @field_validator(
+        "gemini_api_key", "openai_api_key", "qdrant_api_key", mode="before"
+    )
     @classmethod
     def _empty_secret_to_none(cls, value: Any) -> Any:
         if isinstance(value, str) and not value.strip():
@@ -189,7 +191,9 @@ class Settings(BaseSettings):
         if self.ingestion_retry_max_s < self.ingestion_retry_base_s:
             raise ValueError("INGESTION_RETRY_MAX_S must be >= INGESTION_RETRY_BASE_S")
         if self.ingestion_time_limit_s <= self.ingestion_soft_time_limit_s:
-            raise ValueError("INGESTION_TIME_LIMIT_S must be > INGESTION_SOFT_TIME_LIMIT_S")
+            raise ValueError(
+                "INGESTION_TIME_LIMIT_S must be > INGESTION_SOFT_TIME_LIMIT_S"
+            )
         return self
 
     @property
@@ -197,8 +201,12 @@ class Settings(BaseSettings):
         if self.llm_provider == "ollama":
             return True
         if self.llm_provider == "openai":
-            return bool(self.openai_api_key and self.openai_api_key.get_secret_value().strip())
-        return bool(self.gemini_api_key and self.gemini_api_key.get_secret_value().strip())
+            return bool(
+                self.openai_api_key and self.openai_api_key.get_secret_value().strip()
+            )
+        return bool(
+            self.gemini_api_key and self.gemini_api_key.get_secret_value().strip()
+        )
 
     @property
     def resolved_data_dir(self) -> Path:
