@@ -12,6 +12,7 @@ dependencies = [
     "pydantic>=2.14,<3",
     "pydantic-settings>=2.16,<3",
     "pymupdf>=2.0,<3",
+    "python-multipart>=0.0.20,<1",
     "qdrant-client>=1.20,<2",
     "redis>=8.1,<9",
     "sse-starlette>=3.6,<4",
@@ -69,6 +70,14 @@ plugins = ["pydantic.mypy"]
 [[tool.mypy.overrides]]
 module = ["fastembed.*", "google.genai.*", "celery.*", "sse_starlette.*"]
 ignore_missing_imports = true
+
+# PyMuPDF exposes untyped C-extension methods; keep strict typing in our code.
+[[tool.mypy.overrides]]
+module = [
+    "app.modules.ingestion.infrastructure.parser",
+    "app.modules.documents.infrastructure.pymupdf_renderer",
+]
+disallow_untyped_calls = false
 
 [[tool.mypy.overrides]]
 module = ["tests.*"]
