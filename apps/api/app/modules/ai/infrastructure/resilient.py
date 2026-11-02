@@ -91,5 +91,11 @@ class ResilientEmbedding:
     def breaker(self) -> CircuitBreaker:
         return self._breaker
 
+    async def warmup(self) -> None:
+        """Delegate an optional warmup to the provider (not retried/timed out)."""
+        warmup = getattr(self._inner, "warmup", None)
+        if callable(warmup):
+            await warmup()
+
     async def embed(self, texts: Sequence[str]) -> list[list[float]]:
         return await self._embed(texts)

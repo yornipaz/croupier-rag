@@ -78,6 +78,10 @@ class FastEmbedEmbedding:
                         ) from exc
         return self._model
 
+    async def warmup(self) -> None:
+        """Load the ONNX model outside the resilience timeout (first download)."""
+        await self._get_model()
+
     async def embed(self, texts: Sequence[str]) -> list[list[float]]:
         if not texts:
             return []
