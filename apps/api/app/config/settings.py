@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     # Storage
     data_dir: Path = Path("./data")
     max_upload_mb: int = Field(default=50, ge=1, le=500)
+    crop_margin_pt: float = Field(default=12.0, ge=0.0, le=200.0)
+    crop_dpi: int = Field(default=150, ge=72, le=600)
+    image_min_size_pt: float = Field(default=50.0, ge=0.0, le=2000.0)
+    image_dpi: int = Field(default=150, ge=72, le=600)
 
     # Infrastructure
     redis_url: str = "redis://localhost:6379/0"
@@ -82,6 +86,7 @@ class Settings(BaseSettings):
     # Chunking / retrieval
     chunk_max_tokens: int = Field(default=450, ge=50, le=4000)
     chunk_overlap_tokens: int = Field(default=60, ge=0, le=1000)
+    embed_batch_size: int = Field(default=32, ge=1, le=512)
     retrieval_top_k: int = Field(default=8, ge=1, le=50)
     retrieval_prefetch_limit: int = Field(default=30, ge=1, le=500)
     retrieval_min_score: float = Field(default=0.30, ge=0.0, le=1.0)
@@ -99,6 +104,11 @@ class Settings(BaseSettings):
 
     # Jobs / SSE
     sse_heartbeat_s: float = Field(default=15.0, gt=0)
+    ingestion_max_retries: int = Field(default=3, ge=0, le=10)
+    ingestion_retry_base_s: float = Field(default=2.0, gt=0)
+    ingestion_retry_max_s: float = Field(default=60.0, gt=0)
+    ingestion_soft_time_limit_s: int = Field(default=600, ge=30)
+    ingestion_time_limit_s: int = Field(default=660, ge=30)
 
     @field_validator("env")
     @classmethod
@@ -171,6 +181,10 @@ class Settings(BaseSettings):
             raise ValueError("HTTP_RETRY_MAX_S must be >= HTTP_RETRY_BASE_S")
         if self.retrieval_prefetch_limit < self.retrieval_top_k:
             raise ValueError("RETRIEVAL_PREFETCH_LIMIT must be >= RETRIEVAL_TOP_K")
+        if self.ingestion_retry_max_s < self.ingestion_retry_base_s:
+            raise ValueError("INGESTION_RETRY_MAX_S must be >= INGESTION_RETRY_BASE_S")
+        if self.ingestion_time_limit_s <= self.ingestion_soft_time_limit_s:
+            raise ValueError("INGESTION_TIME_LIMIT_S must be > INGESTION_SOFT_TIME_LIMIT_S")
         return self
 
     @property
