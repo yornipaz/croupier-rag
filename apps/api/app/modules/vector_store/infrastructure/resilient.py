@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Sequence
 
+from app.modules.vector_store.application.dto.embedded import EmbeddedChunk
 from app.modules.vector_store.application.dto.search import SearchHit, SparseVector
 from app.modules.vector_store.application.ports.vector_store import VectorStorePort
 from app.shared.chunks import Chunk
@@ -46,6 +47,14 @@ class ResilientVectorStore:
             base_delay_s=base_delay_s,
             max_delay_s=max_delay_s,
         )(inner.upsert)
+        self._upsert_embedded: Callable[[Sequence[EmbeddedChunk]], Awaitable[None]] = resilient(
+            name=f"{name}:upsert-embedded",
+            breaker=self._breaker,
+            timeout_s=timeout_s,
+            max_retries=max_retries,
+            base_delay_s=base_delay_s,
+            max_delay_s=max_delay_s,
+        )(inner.upsert_embedded)
         self._search: Callable[
             [Sequence[float], SparseVector, int, str | None],
             Awaitable[list[SearchHit]],
@@ -75,6 +84,9 @@ class ResilientVectorStore:
 
     async def upsert(self, chunks: Sequence[Chunk]) -> None:
         await self._upsert(chunks)
+
+    async def upsert_embedded(self, chunks: Sequence[EmbeddedChunk]) -> None:
+        await self._upsert_embedded(chunks)
 
     async def hybrid_search(
         self,

@@ -8,6 +8,7 @@ import pytest
 from qdrant_client.http import exceptions as qdrant_exceptions
 from qdrant_client.http import models as qm
 
+from app.modules.vector_store.application.dto.embedded import EmbeddedChunk
 from app.modules.vector_store.application.dto.search import SparseVector
 from app.modules.vector_store.infrastructure.qdrant import QdrantVectorStore
 from app.shared.chunks import Chunk
@@ -156,6 +157,27 @@ async def test_upsert_embeds_and_stores_the_full_chunk_payload() -> None:
     assert point.vector["sparse"] == qm.SparseVector(indices=[1, 2], values=[0.5, 0.25])
     assert point.payload == _payload(chunk)
     assert client.upserts[0]["wait"] is True
+
+
+async def test_upsert_embedded_uses_vectors_from_the_pipeline() -> None:
+    client = FakeQdrantClient()
+    store = _store(client)
+    chunk = _chunk(0)
+
+    await store.upsert_embedded(
+        [
+            EmbeddedChunk(
+                chunk=chunk,
+                dense=(0.9, 0.8, 0.7),
+                sparse=SparseVector(indices=[9], values=[0.25]),
+            )
+        ]
+    )
+
+    point = client.upserts[0]["points"][0]
+    assert point.id == chunk.id
+    assert point.vector["dense"] == [0.9, 0.8, 0.7]
+    assert point.vector["sparse"] == qm.SparseVector(indices=[9], values=[0.25])
 
 
 async def test_hybrid_search_uses_prefetch_rrf_and_returns_component_ranks() -> None:

@@ -8,6 +8,7 @@ from qdrant_client import AsyncQdrantClient
 from qdrant_client.http import models as qm
 
 from app.modules.ai.application.ports.embedding import EmbeddingPort
+from app.modules.vector_store.application.dto.embedded import EmbeddedChunk
 from app.modules.vector_store.application.dto.search import SearchHit, SparseVector
 from app.modules.vector_store.application.ports.sparse_encoder import SparseEncoderPort
 from app.modules.vector_store.infrastructure.errors import map_qdrant_exception
@@ -130,27 +131,42 @@ class QdrantVectorStore:
         items = list(chunks)
         if not items:
             return
-        try:
-            dense_vectors = await self._embedding.embed([chunk.text for chunk in items])
-            sparse_vectors = await self._sparse_encoder.embed([chunk.text for chunk in items])
-            if len(dense_vectors) != len(items) or len(sparse_vectors) != len(items):
-                raise UpstreamError("Embedding adapters returned a different number of vectors")
+        dense_vectors = await self._embedding.embed([chunk.text for chunk in items])
+        sparse_vectors = await self._sparse_encoder.embed([chunk.text for chunk in items])
+        if len(dense_vectors) != len(items) or len(sparse_vectors) != len(items):
+            raise UpstreamError("Embedding adapters returned a different number of vectors")
 
+        await self.upsert_embedded(
+            [
+                EmbeddedChunk(
+                    chunk=chunk,
+                    dense=tuple(dense_vectors[index]),
+                    sparse=sparse_vectors[index],
+                )
+                for index, chunk in enumerate(items)
+            ]
+        )
+
+    async def upsert_embedded(self, chunks: Sequence[EmbeddedChunk]) -> None:
+        items = list(chunks)
+        if not items:
+            return
+        try:
             for start in range(0, len(items), self._upsert_batch_size):
                 batch = items[start : start + self._upsert_batch_size]
                 points = [
                     qm.PointStruct(
-                        id=chunk.id,
+                        id=item.chunk.id,
                         vector={
-                            DENSE_VECTOR_NAME: dense_vectors[start + offset],
+                            DENSE_VECTOR_NAME: list(item.dense),
                             SPARSE_VECTOR_NAME: qm.SparseVector(
-                                indices=sparse_vectors[start + offset].indices,
-                                values=sparse_vectors[start + offset].values,
+                                indices=item.sparse.indices,
+                                values=item.sparse.values,
                             ),
                         },
-                        payload=_chunk_payload(chunk),
+                        payload=_chunk_payload(item.chunk),
                     )
-                    for offset, chunk in enumerate(batch)
+                    for item in batch
                 ]
                 await self._client.upsert(
                     collection_name=self._collection_name,
