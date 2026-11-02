@@ -4,14 +4,17 @@ import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import replace
 from datetime import UTC, datetime
+from functools import lru_cache
 
 from celery.app.task import Task
 from celery.exceptions import SoftTimeLimitExceeded
+from celery.signals import worker_process_init
 from qdrant_client import AsyncQdrantClient
 from redis.asyncio import Redis
 
 from app.celery_app import INGESTION_TASK_NAME, celery_app
 from app.config.settings import get_settings
+from app.modules.ai.application.ports.embedding import EmbeddingPort
 from app.modules.ai.module import build_embedding
 from app.modules.documents.infrastructure.document_repository import (
     FileSystemDocumentRepository,
@@ -23,6 +26,7 @@ from app.modules.ingestion.infrastructure.redis_jobs import (
     RedisJobRepository,
 )
 from app.modules.ingestion.module import build_ingestion_pipeline
+from app.modules.vector_store.application.ports.sparse_encoder import SparseEncoderPort
 from app.modules.vector_store.module import build_sparse_encoder, build_vector_store
 from app.shared.context import bind_job_id, reset_job_id
 from app.shared.errors import AppError, JobNotFoundError
@@ -30,6 +34,43 @@ from app.shared.logging import get_logger
 
 settings = get_settings()
 logger = get_logger(__name__)
+
+
+@lru_cache(maxsize=1)
+def _worker_embedding() -> EmbeddingPort:
+    """Load the dense model once per Celery worker process.
+
+    Building the adapter for every task and retry reloads the ONNX model and
+    can leave previous sessions resident in memory. Reusing one adapter keeps
+    the model warm and prevents memory pressure from making later embed calls
+    exceed the per-attempt timeout.
+    """
+    return build_embedding(settings)
+
+
+@lru_cache(maxsize=1)
+def _worker_sparse_encoder() -> SparseEncoderPort:
+    """Reuse the BM25 encoder across ingestion jobs and retries."""
+    return build_sparse_encoder(settings)
+
+
+async def _warmup_worker_async() -> None:
+    warmup = getattr(_worker_embedding(), "warmup", None)
+    if callable(warmup):
+        await warmup()
+
+
+@worker_process_init.connect  # type: ignore[untyped-decorator]
+def _warmup_worker(**_: object) -> None:
+    """Preload the local embedding model before the first ingestion task."""
+    try:
+        asyncio.run(_warmup_worker_async())
+        logger.info("ingestion.worker_warmup_ready", model=settings.embedding_model)
+    except Exception:
+        # Do not keep a partially initialized adapter cached: the next task
+        # will build a fresh one and retry the warmup outside the job timeout.
+        _worker_embedding.cache_clear()
+        logger.exception("ingestion.worker_warmup_failed")
 
 
 @celery_app.task(  # type: ignore[untyped-decorator]
@@ -104,8 +145,8 @@ async def _process_async(job_id: str, document_id: str) -> None:
             min_image_size_pt=settings.image_min_size_pt,
             image_dpi=settings.image_dpi,
         )
-        embedding = build_embedding(settings)
-        sparse_encoder = build_sparse_encoder(settings)
+        embedding = _worker_embedding()
+        sparse_encoder = _worker_sparse_encoder()
         vectors = build_vector_store(
             settings,
             client=qdrant,
