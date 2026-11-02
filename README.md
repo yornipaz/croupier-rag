@@ -3,9 +3,9 @@
 RAG multimodal para manuales técnicos en PDF: ingestión de texto, tablas y diagramas, recuperación
 híbrida y respuestas con fuente (archivo, página, bbox) e imagen relevante.
 
-> **Estado: documentos e ingesta funcionando.** La API sube PDFs, los procesa en el worker
-> (texto, tablas, imágenes y captions), indexa chunks híbridos en Qdrant y expone el progreso por
-> SSE. Retrieval, chat y UI se implementan en las siguientes fases.
+> **Estado: pipeline RAG completo (sin UI).** La API sube PDFs, los procesa en el worker
+> (texto, tablas, imágenes y captions), indexa chunks híbridos en Qdrant, recupera contexto con
+> fuentes e imágenes y responde con citas validadas. La UI Angular queda para la siguiente fase.
 
 ## Arranque (Docker)
 
@@ -75,7 +75,8 @@ Variables principales:
 | `GEMINI_API_KEY` | vacío | Necesaria con `LLM_PROVIDER=gemini` o `EMBEDDING_PROVIDER=gemini`. |
 | `OPENAI_API_KEY` | vacío | Opcional, con `LLM_PROVIDER=openai`. |
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama local. |
-| `RETRIEVAL_MIN_SCORE` | `0.30` | Umbral defensivo del retrieval. |
+| `RETRIEVAL_MIN_SCORE` | `0.30` | Umbral defensivo sobre similitud densa; si no se alcanza, chat no llama al LLM. |
+| `CHAT_HISTORY_TURNS` | `6` | Pares de turnos previos usados para reescribir y responder. |
 | `CHUNK_MAX_TOKENS` | `450` | Tamaño máximo de chunk. |
 | `LLM_TIMEOUT_S` | `60` | Timeout por intento. |
 | `BREAKER_FAILURE_THRESHOLD` | `5` | Fallos antes de abrir el circuito. |
@@ -107,10 +108,16 @@ Los tests no usan red: health se prueba con probes fake y `dependency_overrides`
 | `GET` | `/documents/{id}/pages/{n}/crop` | PNG recortado por `bbox`; `highlight=true` resalta la zona. |
 | `GET` | `/jobs/{id}` | Estado, etapa, progreso y error del job. |
 | `GET` | `/jobs/{id}/events` | SSE con estado actual y actualizaciones del job. |
+| `POST` | `/retrieval/search` | Búsqueda híbrida; devuelve chunks, imágenes, `topScore` y `debug` opcional. |
+| `POST` | `/chat/ask` | Respuesta defensiva con fuentes citadas e imágenes; `?debug=true` añade trazas. |
 | `GET` | `/docs` | Swagger UI ordenada por tags. |
 
+`POST /chat/ask` necesita un proveedor LLM configurado (`GEMINI_API_KEY`, `OPENAI_API_KEY` u
+Ollama). Sin LLM, el guard de baja relevancia sigue respondiendo "No tengo información suficiente…"
+sin invocarlo; una consulta con contexto devuelve `503 llm_not_configured`.
+
 La primera ingesta descarga el modelo denso de FastEmbed en el worker; en Docker queda cacheado en
-el volumen `data` (`/data/cache`).
+el volumen `data` (`/data/cache`). La API reutiliza la misma caché para retrieval.
 
 ## Resiliencia (lista para usar)
 
@@ -135,5 +142,6 @@ adapter de Qdrant. Así el puerto que consume retrieval/chat ya incluye timeout,
 1. ✅ `documents`: upload, metadata y crop con PyMuPDF.
 2. ✅ `ingestion`: parser por bloques, chunking por layout, ImageLinker y jobs SSE.
 3. ✅ `ai` + `vector_store`: Gemini/Ollama/fastembed y Qdrant híbrido con RRF.
-4. `retrieval` + `chat`: umbral defensivo, citas `[S1]` y salida JSON validada.
+4. ✅ `retrieval` + `chat`: umbral defensivo, citas `[S1]` y salida JSON validada.
 5. `apps/web`: Angular standalone + signals + Tailwind.
+6. Opcional: `POST /chat/ask/stream` con SSE incremental.
