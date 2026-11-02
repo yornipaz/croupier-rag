@@ -193,6 +193,9 @@ Detalle de endpoints:
 - `core/services`: documentos, tema, auditor, atajos.
 - `core/sse`: servicio SSE de jobs con reconexión y cierre terminal.
 - `features/chat`: historial, composer, Markdown, FigureViewer y estados de pensamiento/error.
+- `ConversationStore` persiste conversaciones y `activeId` en `localStorage`
+  (`croupier.conversations.v1`) y las rehidrata al recargar; los datos inválidos o incompatibles
+  vuelven a un estado inicial seguro.
 - `features/documents`: drag & drop, validación, timeline y biblioteca.
 - `features/inspector`: drawer del modo auditor con chunks/ranks/motivo de rechazo.
 - `shared/ui`: iconos, focus trap, source chips y diálogo de atajos.

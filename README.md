@@ -144,6 +144,8 @@ La UI incluye:
 - **Inspector de recuperación**: activa “Modo auditor” para enviar `debug=true`; el drawer lista
   chunks, sección, página, scores, ranks denso/sparse y el motivo de rechazo cuando no hay
   respaldo documental.
+- **Historial persistente**: conversaciones y mensajes se guardan en `localStorage` y se
+  recuperan al recargar.
 - **Atajos**: `Enter` envía, `Shift+Enter` salta línea, `/` enfoca la consulta, `Ctrl/Cmd+K` crea
   conversación, `Esc` cierra modales/paneles y `?` abre la ayuda de teclado.
 - Estados vacíos propios, transiciones sutiles y respeto a `prefers-reduced-motion`.

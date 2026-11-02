@@ -1,4 +1,4 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, effect, signal } from '@angular/core';
 
 import { environment } from '../../../environments/environment';
 import type { ChatDebug, ChatImage, ChatSource } from '../api/chat-api.types';
@@ -22,10 +22,19 @@ export interface Conversation {
   messages: ChatMessage[];
 }
 
+const STORAGE_KEY = 'croupier.conversations.v1';
+
+interface StoredConversations {
+  version: 1;
+  activeId: string;
+  conversations: Conversation[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class ConversationStore {
-  private readonly conversationsState = signal<Conversation[]>(createSeedConversations());
-  private readonly activeIdState = signal<string>(this.conversationsState()[0]?.id ?? '');
+  private readonly initialState = loadInitialState();
+  private readonly conversationsState = signal<Conversation[]>(this.initialState.conversations);
+  private readonly activeIdState = signal<string>(this.initialState.activeId);
   private readonly activeConversation = computed(
     () =>
       this.conversationsState().find((conversation) => conversation.id === this.activeIdState()) ??
@@ -37,6 +46,24 @@ export class ConversationStore {
   readonly activeId = this.activeIdState.asReadonly();
   readonly active = this.activeConversation;
   readonly activeMessages = computed(() => this.activeConversation()?.messages ?? []);
+
+  constructor() {
+    effect(() => {
+      const payload: StoredConversations = {
+        version: 1,
+        activeId: this.activeIdState(),
+        conversations: this.conversationsState(),
+      };
+      if (typeof localStorage === 'undefined') {
+        return;
+      }
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      } catch {
+        // Storage can be unavailable or full; the in-memory state remains usable.
+      }
+    });
+  }
 
   select(conversationId: string): void {
     this.activeIdState.set(conversationId);
@@ -79,6 +106,91 @@ export class ConversationStore {
         : updated;
     });
   }
+}
+
+function loadInitialState(): { activeId: string; conversations: Conversation[] } {
+  const stored = readStoredConversations();
+  if (stored) {
+    return stored;
+  }
+  const conversations = createSeedConversations();
+  return {
+    activeId: conversations[0]?.id ?? '',
+    conversations,
+  };
+}
+
+function readStoredConversations(): {
+  activeId: string;
+  conversations: Conversation[];
+} | null {
+  if (typeof localStorage === 'undefined') {
+    return null;
+  }
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed: unknown = JSON.parse(raw);
+    if (!isStoredConversations(parsed)) {
+      return null;
+    }
+    const activeId = parsed.conversations.some(
+      (conversation) => conversation.id === parsed.activeId,
+    )
+      ? parsed.activeId
+      : (parsed.conversations[0]?.id ?? '');
+    return { activeId, conversations: parsed.conversations };
+  } catch {
+    return null;
+  }
+}
+
+function isStoredConversations(value: unknown): value is StoredConversations {
+  if (!isRecord(value) || value['version'] !== 1) {
+    return false;
+  }
+  return (
+    typeof value['activeId'] === 'string' &&
+    Array.isArray(value['conversations']) &&
+    value['conversations'].length > 0 &&
+    value['conversations'].every(isConversation)
+  );
+}
+
+function isConversation(value: unknown): value is Conversation {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    typeof value['id'] === 'string' &&
+    typeof value['title'] === 'string' &&
+    typeof value['preview'] === 'string' &&
+    typeof value['updatedAt'] === 'number' &&
+    Array.isArray(value['messages']) &&
+    value['messages'].every(isMessage)
+  );
+}
+
+function isMessage(value: unknown): value is ChatMessage {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    typeof value['id'] === 'string' &&
+    (value['role'] === 'user' || value['role'] === 'assistant') &&
+    typeof value['content'] === 'string' &&
+    Array.isArray(value['sources']) &&
+    Array.isArray(value['images']) &&
+    typeof value['sufficient'] === 'boolean' &&
+    typeof value['createdAt'] === 'number' &&
+    (value['debug'] === null || isRecord(value['debug']))
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }
 
 function createSeedConversations(): Conversation[] {
