@@ -1,0 +1,125 @@
+# Croupier RAG
+
+RAG multimodal para manuales técnicos en PDF: ingestión de texto, tablas y diagramas, recuperación
+híbrida y respuestas con fuente (archivo, página, bbox) e imagen relevante.
+
+> **Estado: esqueleto del monorepo.** Arquitectura modular, configuración validada, resiliencia,
+> health check y Docker funcionando. Ingesta, retrieval, chat y UI se implementan en las siguientes
+> fases.
+
+## Arranque (Docker)
+
+Requisitos: Docker 24+ con Compose v2.
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+| Recurso | URL |
+| --- | --- |
+| Health | http://localhost:8000/health |
+| Swagger UI | http://localhost:8000/docs |
+| OpenAPI | http://localhost:8000/openapi.json |
+| Qdrant dashboard | http://localhost:6333/dashboard |
+
+Sin `.env` también arranca: la API responde y reporta el LLM como no configurado.
+
+Servicios: `api`, `worker`, `redis`, `qdrant`. `apps/web` queda reservado (vacío) para la fase de UI.
+
+## Estructura
+
+```text
+.
+├── apps/
+│   ├── api/                  # FastAPI + Celery
+│   │   ├── app/
+│   │   │   ├── config/       # Settings + logging
+│   │   │   ├── shared/       # Errores, middleware, camelCase, resiliencia
+│   │   │   ├── modules/      # 7 módulos hexagonales
+│   │   │   ├── bootstrap.py  # Composition root
+│   │   │   ├── main.py       # create_app()
+│   │   │   └── worker.py     # Celery
+│   │   ├── tests/
+│   │   ├── Dockerfile        # multi-stage
+│   │   └── .importlinter
+│   └── web/                  # vacío por ahora
+├── docs/adr/                 # Decisiones de arquitectura
+├── eval/                     # Plan del conjunto de evaluación
+├── docker-compose.yml
+├── Makefile
+└── .env.example
+```
+
+Cada módulo sigue `domain / application{ports,use_cases,dto} / infrastructure / presentation /
+module.py`. `module.py` expone `router` y las factories de composición.
+
+## Configuración
+
+Todo se valida al arrancar con Pydantic Settings. Base: `.env`; override por ambiente:
+`.env.${ENV}` (por ejemplo `.env.production`). Las variables de proceso tienen prioridad.
+
+Variables principales:
+
+| Variable | Default | Descripción |
+| --- | --- | --- |
+| `ENV` | `local` | Selecciona `.env.${ENV}`. |
+| `REDIS_URL` | `redis://localhost:6379/0` | Estado de jobs y broker Celery. |
+| `QDRANT_URL` | `http://localhost:6333` | Vector store. |
+| `DATA_DIR` | `./data` | PDFs e imágenes extraídas. |
+| `LLM_PROVIDER` | `gemini` | `gemini`, `ollama` u `openai`. |
+| `EMBEDDING_PROVIDER` | `fastembed` | Embeddings locales. |
+| `GEMINI_API_KEY` | vacío | Necesaria con `LLM_PROVIDER=gemini`. |
+| `OPENAI_API_KEY` | vacío | Opcional, con `LLM_PROVIDER=openai`. |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama local. |
+| `RETRIEVAL_MIN_SCORE` | `0.30` | Umbral defensivo del retrieval. |
+| `CHUNK_MAX_TOKENS` | `450` | Tamaño máximo de chunk. |
+| `LLM_TIMEOUT_S` | `60` | Timeout por intento. |
+| `BREAKER_FAILURE_THRESHOLD` | `5` | Fallos antes de abrir el circuito. |
+| `BREAKER_RECOVERY_S` | `30` | Espera antes de half-open. |
+
+`.env.example` documenta el resto.
+
+## Calidad
+
+```bash
+make test        # pytest (CircuitBreaker, retry, settings, health, API)
+make lint        # ruff
+make mypy        # mypy --strict
+make lint-arch   # import-linter (reglas 1 y 3)
+make quality     # todo
+```
+
+Los tests no usan red: health se prueba con probes fake y `dependency_overrides`.
+
+## Endpoints actuales
+
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| `GET` | `/health` | Redis + Qdrant en paralelo con timeout; `503` si algo crítico falla. |
+| `GET` | `/docs` | Swagger UI ordenada por tags. |
+
+## Resiliencia (lista para usar)
+
+`app/shared/resilience` expone:
+
+- `retry(...)`: backoff exponencial + jitter, solo errores retryables (429/5xx/timeouts/transporte).
+- `CircuitBreaker`: `CLOSED → OPEN → HALF_OPEN`, umbral y recuperación configurables.
+- `resilient(...)`: decorador que compone timeout + retry + breaker.
+
+```python
+breaker = CircuitBreaker("gemini", failure_threshold=5, recovery_timeout=30)
+
+@resilient(name="gemini", breaker=breaker, timeout_s=60)
+async def generate(prompt: str) -> str: ...
+```
+
+Todavía no se aplica a ningún adapter: se conectará en las fases de IA.
+
+## Roadmap
+
+1. `documents`: upload, metadata y crop con PyMuPDF.
+2. `ingestion`: parser por bloques, chunking por layout, ImageLinker y jobs SSE.
+3. `ai` + `vector_store`: Gemini/Ollama/fastembed y Qdrant híbrido con RRF.
+4. `retrieval` + `chat`: umbral defensivo, citas `[S1]` y salida JSON validada.
+5. `apps/web`: Angular standalone + signals + Tailwind.
