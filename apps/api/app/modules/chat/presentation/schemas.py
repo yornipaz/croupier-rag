@@ -5,7 +5,7 @@ from typing import Literal
 from pydantic import Field
 
 from app.modules.chat.application.dto.chat import ChatAnswer, ChatRole, ChatTurn
-from app.modules.retrieval.application.dto.retrieval import RetrievalDebug
+from app.modules.retrieval.application.dto.retrieval import RetrievalDebug, SelectionDebug
 from app.shared.chunks import BBox
 from app.shared.schemas import CamelModel
 
@@ -53,9 +53,40 @@ class ChatDebugHitSchema(CamelModel):
     sparse_score: float | None = None
 
 
+class SelectionDropSchema(CamelModel):
+    chunk_id: str
+    reason: str
+
+
+class SelectionDebugSchema(CamelModel):
+    mode: str
+    enabled: bool
+    decision: str
+    signals: dict[str, float]
+    thresholds: dict[str, float]
+    kept: list[str]
+    dropped: list[SelectionDropSchema]
+
+    @classmethod
+    def from_dto(cls, selection: SelectionDebug) -> SelectionDebugSchema:
+        return cls(
+            mode=selection.mode,
+            enabled=selection.enabled,
+            decision=selection.decision,
+            signals=selection.signals,
+            thresholds=selection.thresholds,
+            kept=list(selection.kept),
+            dropped=[
+                SelectionDropSchema(chunk_id=item.chunk_id, reason=item.reason)
+                for item in selection.dropped
+            ],
+        )
+
+
 class ChatDebugSchema(CamelModel):
     retrieved: list[ChatDebugHitSchema]
     lexical_coverage: float
+    selection: SelectionDebugSchema | None = None
 
     @classmethod
     def from_dto(cls, debug: RetrievalDebug) -> ChatDebugSchema:
@@ -80,6 +111,9 @@ class ChatDebugSchema(CamelModel):
                 for item in debug.retrieved
             ],
             lexical_coverage=debug.lexical_coverage,
+            selection=SelectionDebugSchema.from_dto(debug.selection)
+            if debug.selection is not None
+            else None,
         )
 
 

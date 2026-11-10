@@ -4,7 +4,6 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from app.modules.chat.application.dto.chat import INSUFFICIENT_ANSWER, ChatTurn
-from app.modules.retrieval.application.dto.retrieval import RetrievedChunk
 
 SYSTEM_PROMPT = f"""Eres un asistente técnico especializado en manuales.
 
@@ -74,9 +73,8 @@ class PromptBuilder:
         self,
         query: str,
         history: Sequence[ChatTurn],
-        chunks: Sequence[RetrievedChunk],
+        context: str,
     ) -> AnswerPromptParts:
-        context = self._format_context(chunks)
         history_block = self._format_history(history)
         question = query.strip()
         text = (
@@ -97,12 +95,9 @@ class PromptBuilder:
         self,
         query: str,
         history: Sequence[ChatTurn],
-        chunks: Sequence[RetrievedChunk],
+        context: str,
     ) -> str:
-        return self.build_answer_parts(query, history, chunks).text
-
-    def format_context(self, chunks: Sequence[RetrievedChunk]) -> str:
-        return self._format_context(chunks)
+        return self.build_answer_parts(query, history, context).text
 
     def build_repair_prompt(self, original_prompt: str, invalid_response: str) -> str:
         return (
@@ -112,20 +107,6 @@ class PromptBuilder:
             "Corrige la respuesta. Devuelve SOLO un objeto JSON con las claves "
             '"answer", "used_sources" y "sufficient". No añadas markdown ni explicaciones.'
         )
-
-    @staticmethod
-    def _format_context(chunks: Sequence[RetrievedChunk]) -> str:
-        if not chunks:
-            return "(sin contexto recuperado)"
-        blocks: list[str] = []
-        for index, item in enumerate(chunks, start=1):
-            chunk = item.chunk
-            section = " > ".join(chunk.section_path) or "(sin sección)"
-            blocks.append(
-                f"[S{index}] archivo={chunk.doc_id} página={chunk.page} "
-                f"sección={section} tipo={chunk.kind}\n{chunk.text}"
-            )
-        return "\n\n".join(blocks)
 
     @staticmethod
     def _format_history(history: Sequence[ChatTurn]) -> str:

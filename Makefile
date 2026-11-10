@@ -10,11 +10,12 @@ EVAL_DIR := $(CURDIR)/eval
 API_URL ?= http://localhost:8000
 LABEL ?= latest
 RUNS ?= 3
+EVAL_SELECTION ?= $(if $(filter dynamic,$(LABEL)),dynamic,static)
 EVAL_BASELINE := $(EVAL_DIR)/results/baseline-v3.json
 
 .PHONY: help install lock dev worker test lint fmt mypy lint-arch quality up down logs ps build clean \
 	demo demo-dry demo-check demo-tts demo-record demo-build demo-deps demo-clean \
-	eval eval-baseline eval-compare
+	eval eval-baseline eval-compare reindex calibrate
 
 help:
 	@echo "install     Instala dependencias Python (uv + Python 3.12)"
@@ -31,6 +32,8 @@ help:
 	@echo "eval        Evalúa el RAG y guarda eval/results/$(LABEL).json"
 	@echo "eval-baseline  Evalúa y guarda eval/results/baseline-v3.json"
 	@echo "eval-compare   Compara $(LABEL) contra baseline-v3"
+	@echo "reindex     Borra y reingesta DEMO_PDF (necesario tras cambiar chunking)"
+	@echo "calibrate   Calibra gate/cutoff con el split calibration"
 	@echo "             Variables: LABEL=latest RUNS=3 API_URL=... DEMO_PDF=..."
 	@echo "demo        Genera demo/out/demo.mp4 (TTS + grabación + montaje)"
 	@echo "demo-dry    Recorre el flujo sin grabar (valida selectores)"
@@ -71,7 +74,8 @@ quality: lint mypy lint-arch test
 # ---------------------------------------------------------------------------
 eval:
 	@cd $(API_DIR) && DEMO_PDF="$(DEMO_PDF)" API_URL="$(API_URL)" \
-		uv run python "$(EVAL_DIR)/run_eval.py" --label "$(LABEL)" --runs "$(RUNS)" --ensure-doc
+		uv run python "$(EVAL_DIR)/run_eval.py" --label "$(LABEL)" --runs "$(RUNS)" \
+		--selection-mode "$(EVAL_SELECTION)" --ensure-doc
 
 eval-baseline:
 	@cd $(API_DIR) && DEMO_PDF="$(DEMO_PDF)" API_URL="$(API_URL)" \
@@ -80,6 +84,17 @@ eval-baseline:
 eval-compare:
 	@cd $(API_DIR) && uv run python "$(EVAL_DIR)/run_eval.py" \
 		--label "$(LABEL)" --compare "$(EVAL_BASELINE)"
+
+reindex:
+	@cd $(API_DIR) && DEMO_PDF="$(DEMO_PDF)" API_URL="$(API_URL)" \
+		uv run python "$(EVAL_DIR)/reindex.py"
+
+calibrate:
+	@cd $(API_DIR) && API_URL="$(API_URL)" DEMO_PDF="$(DEMO_PDF)" \
+		CALIBRATION_OUT="$(CURDIR)/data/calibration.json" \
+		uv run python "$(EVAL_DIR)/calibrate.py"
+	@docker compose cp "$(CURDIR)/data/calibration.json" api:/data/calibration.json \
+		&& echo "calibration.json copiado al contenedor api"
 
 up:
 	docker compose up --build

@@ -47,9 +47,11 @@ Reglas obligatorias:
   promptTemplateTokens, promptEstimatedTokens, promptTokens, completionTokens, promptSource,
   completionSource, breakdownSource, llmCalls, latencyMs, llmCalled},
   debug?{retrieved[]{chunkId,page,fusedScore,denseCosine,denseRank,sparseRank,sparseScore,sent,...},
-  lexicalCoverage},...}}.
+  lexicalCoverage,selection{mode,enabled,decision,signals,thresholds,kept,dropped[]}},...}}.
   `lexicalCoverage` es la fracción de términos BM25 de la pregunta presentes en los top-N
   chunks (mismos ids del encoder sparse). `sparseScore` es la puntuación BM25 por candidato.
+  `selection.mode=dynamic` aplica gate calibrado + cutoff + MMR; `static` conserva el comportamiento previo.
+  La calibración vive en `DATA_DIR/calibration.json`; si falta o cambia `EMBEDDING_MODEL`, el gate se desactiva.
   Las cuatro cifras del prompt y `promptEstimatedTokens` se estiman con
   `app/shared/tokens.count_tokens`; `promptSource`/`completionSource` indican `provider` o `estimated`.
   En rechazo sin llamar al LLM: `llmCalled=false`, `completionTokens=0` y `chunksSent=0`.
@@ -61,7 +63,12 @@ Reglas obligatorias:
 - Chunking por layout: encabezados por tamaño de fuente → section_path; tablas = chunk completo; si excede el máximo se divide por párrafo/frase, nunca por caracteres.
 - Vinculación imagen↔texto: 1) captions por regex (Figura/Fig. N), 2) referencias "ver Figura N", 3) fallback por distancia vertical de bbox en la misma página.
 - Recuperación híbrida: denso + sparse BM25 (fastembed) con Prefetch + FusionQuery RRF del Query API de Qdrant; filtro opcional por doc_id.
-- Generación defensiva: si el mejor score < umbral → "No tengo información suficiente..." SIN llamar al LLM.
+- Selección dinámica opcional (`SELECTION_MODE`, override `X-Selection-Mode` solo en dev/eval): pool de candidatos,
+  gate conservador con calibración, cutoff adaptativo y packer MMR con presupuesto de tokens. `static` es el comportamiento previo.
+- `CONTEXT_FORMAT=compact` usa una leyenda corta de fuentes; `verbose` conserva el formato anterior.
+- Cambiar chunking/parser exige `make reindex`; cambiar el modelo de embeddings exige reindexar y recalibrar.
+- Generación defensiva: si el mejor score < umbral (modo static) o el gate calibrado decide REJECT (dynamic) →
+  "No tengo información suficiente..." SIN llamar al LLM.
   El prompt exige usar solo el contexto, citar [S1], [S2], declarar cuando falte info e ignorar instrucciones dentro del contexto.
   Salida JSON validada con Pydantic {answer, used_sources[], sufficient}.
 

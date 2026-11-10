@@ -121,6 +121,12 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="Usa todos los splits; por defecto solo el split test",
     )
     parser.add_argument(
+        "--selection-mode",
+        choices=("static", "dynamic"),
+        default=None,
+        help="Header X-Selection-Mode (solo se aplica con ENV=dev|eval)",
+    )
+    parser.add_argument(
         "--job-timeout",
         type=float,
         default=JOB_TIMEOUT_S,
@@ -274,11 +280,13 @@ def _ask(
     doc_id: str | None,
     *,
     temperature: float,
+    selection_mode: str | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {"query": question, "temperature": temperature}
     if doc_id:
         payload["docId"] = doc_id
-    response = client.post(f"{base}/chat/ask?debug=true", json=payload)
+    headers = {"X-Selection-Mode": selection_mode} if selection_mode else None
+    response = client.post(f"{base}/chat/ask?debug=true", json=payload, headers=headers)
     response.raise_for_status()
     body: dict[str, Any] = response.json()
     return body
@@ -475,6 +483,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         question,
                         document_id,
                         temperature=float(args.temperature),
+                        selection_mode=args.selection_mode,
                     )
                 except (httpx.HTTPError, ValueError) as exc:
                     results.append(evaluate_question(case, None, error=str(exc)))
@@ -494,6 +503,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "runs": runs,
             "temperature": float(args.temperature),
             "split": "all" if args.all else "test",
+            "selectionMode": args.selection_mode,
         },
         "document": {
             "id": document_id,

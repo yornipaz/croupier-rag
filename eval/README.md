@@ -31,8 +31,11 @@ Por defecto el reporte usa solo `split=test`; `--all` usa todos los casos.
 
 ```bash
 make eval-baseline          # eval/results/baseline-v3.json
-make eval LABEL=after       # eval/results/after.json
-make eval-compare LABEL=after
+make eval LABEL=static      # selección previa + contexto compacto
+make eval LABEL=dynamic     # gate + cutoff + MMR
+make eval-compare LABEL=dynamic
+make calibrate              # DATA_DIR/calibration.json
+make reindex                # obligatorio tras cambiar parser/chunking
 ```
 
 Variables: `DEMO_PDF` (admite espacios), `API_URL` (default
@@ -42,6 +45,8 @@ Variables: `DEMO_PDF` (admite espacios), `API_URL` (default
 
 Cada corrida envía `temperature=0` por request. `--runs N` repite el dataset y
 el reporte usa la mediana de las métricas; el JSON conserva cada corrida.
+`LABEL=dynamic` envía `X-Selection-Mode: dynamic` (solo el API con `ENV=dev|eval`
+lo acepta); el resto usa `static`.
 
 ## Diagnósticos
 
@@ -58,6 +63,22 @@ busca umbrales con cero falsos rechazos en contestables.
 `diagnose_section_paths.py` lee los payloads de Qdrant y reporta la distribución
 de longitud de `section_path`, los 10 más largos y los bloques del PDF que
 apuntan a posibles encabezados detectados por error.
+
+`calibrate.py` usa solo el split `calibration`, calcula el par de señales y los
+umbrales con `GATE_SAFETY_MARGIN`, calibra `REL_RATIO`/`GAP_RATIO` conservando las
+páginas esperadas y escribe `DATA_DIR/calibration.json`. `make calibrate` lo copia
+al contenedor `api`. Si el fichero falta o no coincide con `EMBEDDING_MODEL`, el
+gate queda desactivado y todo pasa al LLM.
+
+## Selección dinámica
+
+- `CANDIDATE_POOL=20` candidatos híbridos RRF.
+- `RelevanceGate` conservador: dos señales, `REJECT|ACCEPT|UNSURE`; solo `REJECT`
+  evita el LLM y exige que **ambas** señales estén por debajo del umbral calibrado.
+- `AdaptiveCutoff`: `REL_RATIO`, `GAP_RATIO`, `MIN_K`, `MAX_K`.
+- `ContextPacker`: MMR (`MMR_LAMBDA`) con vectores densos, deduplicación
+  (`MMR_DUPLICATE_THRESHOLD`) y presupuesto `CONTEXT_TOKEN_BUDGET` corregido por
+  `TOKEN_ESTIMATE_FACTOR`.
 
 ## Métricas
 

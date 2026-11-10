@@ -181,13 +181,18 @@ def main() -> int:
             bbox = ",".join(f"{float(value):.0f}" for value in row["bbox"] or [])
             print(f"| {row['page']} | {bbox} | {_short(row['suspicious'][0], 220)} |")
 
-    print(
-        "\nRegla implicada: `detect_sections` marca como encabezado cualquier bloque "
-        "`text` no vacío cuyo tamaño de fuente redondeado esté en `heading_sizes` "
-        "(>= talla del cuerpo × 1.15). No comprueba longitud, número de líneas, "
-        "negrita ni puntuación de frase, así que párrafos largos con esa talla se "
-        "propagan como `section_path`."
-    )
+    if suspicious:
+        print(
+            "\nRegla implicada: `detect_sections` marcaba como encabezado cualquier bloque "
+            "`text` no vacío cuyo tamaño de fuente redondeado estuviera en `heading_sizes` "
+            "(>= talla del cuerpo × 1.15), sin comprobar longitud, líneas ni puntuación. "
+            "La versión actual añade límites de longitud/palabras y descarta frases."
+        )
+    else:
+        print(
+            "\nNo se detectan encabezados sospechosos. La detección actual exige tamaño "
+            "de fuente, longitud máxima, pocas líneas/palabras y descarta frases largas."
+        )
     print(json.dumps({"document": doc_id, "chunks": len(rows)}, ensure_ascii=False))
     return 0
 

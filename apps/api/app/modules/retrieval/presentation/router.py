@@ -23,11 +23,26 @@ def get_retrieve_context_use_case(request: Request) -> RetrieveContextUseCase:
 @router.post("/search", response_model=RetrievalResponse, response_model_exclude_none=True)
 async def search(
     payload: RetrievalRequest,
+    request: Request,
     use_case: Annotated[
         RetrieveContextUseCase,
         Depends(get_retrieve_context_use_case),
     ],
     debug: Annotated[bool, Query()] = False,
 ) -> RetrievalResponse:
-    result = await use_case.execute(payload.query, payload.doc_id, payload.top_k)
+    result = await use_case.execute(
+        payload.query,
+        payload.doc_id,
+        payload.top_k,
+        selection_mode=_selection_mode(request),
+    )
     return RetrievalResponse.from_result(result, include_debug=debug)
+
+
+def _selection_mode(request: Request) -> str | None:
+    container = getattr(request.app.state, "container", None)
+    settings = getattr(container, "settings", None)
+    if settings is None or settings.env not in {"dev", "eval"}:
+        return None
+    mode = request.headers.get("X-Selection-Mode", "").strip().lower()
+    return mode if mode in {"static", "dynamic"} else None

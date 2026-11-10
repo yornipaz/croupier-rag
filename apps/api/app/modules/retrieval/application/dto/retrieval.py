@@ -24,6 +24,8 @@ class RetrievedChunk:
     dense_score: float | None = None
     sparse_score: float | None = None
     dense_cosine: float | None = None
+    sparse_indices: tuple[int, ...] | None = None
+    dense_vector: tuple[float, ...] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,9 +58,27 @@ class RetrievalDebugHit:
 
 
 @dataclass(frozen=True, slots=True)
+class SelectionDrop:
+    chunk_id: str
+    reason: str
+
+
+@dataclass(frozen=True, slots=True)
+class SelectionDebug:
+    mode: str
+    enabled: bool
+    decision: str
+    signals: dict[str, float]
+    thresholds: dict[str, float]
+    kept: tuple[str, ...]
+    dropped: tuple[SelectionDrop, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class RetrievalDebug:
     retrieved: tuple[RetrievalDebugHit, ...]
     lexical_coverage: float = 0.0
+    selection: SelectionDebug | None = None
 
     def with_sent(self, chunk_ids: Collection[str]) -> RetrievalDebug:
         """Return a copy marking which candidate chunks were sent to the LLM."""
@@ -66,6 +86,7 @@ class RetrievalDebug:
         return RetrievalDebug(
             retrieved=tuple(replace(hit, sent=hit.chunk_id in sent_ids) for hit in self.retrieved),
             lexical_coverage=self.lexical_coverage,
+            selection=self.selection,
         )
 
 

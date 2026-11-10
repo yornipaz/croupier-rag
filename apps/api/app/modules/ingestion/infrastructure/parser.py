@@ -194,6 +194,7 @@ class PyMuPDFParser:
             line_texts: list[str] = []
             sizes: list[float] = []
             bold = False
+            italic = False
             for line in lines:
                 if not isinstance(line, dict):
                     continue
@@ -212,6 +213,8 @@ class PyMuPDFParser:
                         sizes.append(float(size))
                     if _span_is_bold(span):
                         bold = True
+                    if _span_is_italic(span):
+                        italic = True
                 if span_texts:
                     line_texts.append("".join(span_texts))
             text = "\n".join(line_texts).strip()
@@ -224,6 +227,7 @@ class PyMuPDFParser:
                     text=text,
                     font_size=max(sizes) if sizes else None,
                     is_bold=bold,
+                    is_italic=italic,
                 )
             )
         return blocks
@@ -255,6 +259,14 @@ def _span_is_bold(span: dict[str, Any]) -> bool:
     if isinstance(flags, int) and flags & 16:
         return True
     return "bold" in str(span.get("font", "")).lower()
+
+
+def _span_is_italic(span: dict[str, Any]) -> bool:
+    flags = span.get("flags", 0)
+    if isinstance(flags, int) and flags & 2:
+        return True
+    font = str(span.get("font", "")).lower()
+    return "italic" in font or "oblique" in font
 
 
 def _reading_order(block: ParsedBlock) -> tuple[float, float]:

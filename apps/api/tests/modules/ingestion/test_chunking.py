@@ -2,9 +2,67 @@ from __future__ import annotations
 
 from app.modules.ingestion.domain.chunking import LayoutChunker, OversizeSplitter
 from app.modules.ingestion.domain.image_linker import link_images
+from app.modules.ingestion.domain.parsed import ParsedBlock, ParsedDocument, ParsedPage
 from app.modules.ingestion.domain.structure import detect_sections
 from app.modules.ingestion.domain.tokenizer import count_tokens
 from tests.modules.ingestion.helpers import parsed_fixture
+
+
+def test_detect_sections_rejects_long_blocks_that_merge_heading_and_body() -> None:
+    document = ParsedDocument(
+        doc_id="doc-1",
+        pages=(
+            ParsedPage(
+                number=1,
+                width=612.0,
+                height=792.0,
+                blocks=(
+                    ParsedBlock(
+                        type="text",
+                        bbox=(50.0, 40.0, 250.0, 70.0),
+                        text="1.- Conexión VPN",
+                        font_size=18.0,
+                        is_bold=True,
+                    ),
+                    ParsedBlock(
+                        type="text",
+                        bbox=(50.0, 75.0, 500.0, 85.0),
+                        text=(
+                            "Texto normal del manual con la talla del cuerpo. "
+                            "Este párrafo es suficientemente largo para fijar la talla "
+                            "dominante del documento y evitar que un bloque de título "
+                            "fusionado con su párrafo se convierta en la talla del cuerpo. "
+                            "Repetimos texto neutro para que el peso sea claramente mayor."
+                            " Añadimos una frase final adicional para asegurar que la "
+                            "talla del cuerpo domine el cálculo de la talla base."
+                        ),
+                        font_size=10.0,
+                    ),
+                    ParsedBlock(
+                        type="text",
+                        bbox=(50.0, 80.0, 500.0, 400.0),
+                        text=(
+                            "1.- Conexión VPN La aplicación necesita una conexión VPN "
+                            "para comunicarse con el servidor de Eroski de manera segura. "
+                            "Es importante asegurarse de que la conexión VPN está "
+                            "correctamente configurada y funcionando antes de iniciar "
+                            "la aplicación. Actualmente Eroski recomienda GlobalPortect."
+                        ),
+                        font_size=18.0,
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    detected = detect_sections(document)
+    blocks = detected.pages[0].blocks
+
+    assert blocks[0].is_heading is True
+    assert blocks[1].is_heading is False
+    assert blocks[1].section_path == ("1.- Conexión VPN",)
+    assert blocks[2].is_heading is False
+    assert blocks[2].section_path == ("1.- Conexión VPN",)
 
 
 def test_detect_sections_uses_relative_font_size() -> None:

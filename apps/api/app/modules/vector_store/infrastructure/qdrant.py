@@ -298,6 +298,7 @@ class QdrantVectorStore:
                         cosine_similarity(dense, stored_dense) if stored_dense is not None else None
                     ),
                     sparse_indices=_sparse_indices(point),
+                    dense_vector=tuple(stored_dense) if stored_dense is not None else None,
                 )
             )
         return hits

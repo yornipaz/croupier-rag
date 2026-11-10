@@ -23,8 +23,10 @@ class FakeRetrieve:
         query: str,
         doc_id: str | None = None,
         top_k: int | None = None,
+        *,
+        selection_mode: str | None = None,
     ) -> RetrievalResult:
-        _ = query, doc_id, top_k
+        _ = query, doc_id, top_k, selection_mode
         chunk = Chunk(
             id="chunk-1",
             doc_id="doc-1",

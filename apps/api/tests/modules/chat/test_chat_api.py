@@ -71,6 +71,7 @@ class FakeAsk:
         *,
         conversation_id: str | None = None,
         temperature: float | None = None,
+        selection_mode: str | None = None,
     ) -> ChatAnswer:
         self.calls.append(
             {
@@ -79,6 +80,7 @@ class FakeAsk:
                 "doc_id": doc_id,
                 "conversation_id": conversation_id,
                 "temperature": temperature,
+                "selection_mode": selection_mode,
             }
         )
         return self.answer

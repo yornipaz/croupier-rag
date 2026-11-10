@@ -95,6 +95,20 @@ class Settings(BaseSettings):
     retrieval_min_score: float = Field(default=0.30, ge=0.0, le=1.0)
     rrf_k: int = Field(default=60, ge=1, le=1000)
 
+    # Selection / context packing (dynamic mode)
+    selection_mode: Literal["static", "dynamic"] = "static"
+    context_format: Literal["compact", "verbose"] = "verbose"
+    candidate_pool: int = Field(default=20, ge=1, le=100)
+    min_k: int = Field(default=3, ge=1, le=50)
+    max_k: int = Field(default=6, ge=1, le=50)
+    rel_ratio: float = Field(default=0.55, ge=0.0, le=1.0)
+    gap_ratio: float = Field(default=0.35, ge=0.0, le=1.0)
+    mmr_lambda: float = Field(default=0.7, ge=0.0, le=1.0)
+    mmr_duplicate_threshold: float = Field(default=0.95, ge=0.0, le=1.0)
+    context_token_budget: int = Field(default=1800, ge=100, le=100_000)
+    token_estimate_factor: float = Field(default=1.32, ge=1.0, le=3.0)
+    gate_safety_margin: float = Field(default=0.05, ge=0.0, le=0.5)
+
     # Resilience (seconds unless stated otherwise)
     llm_timeout_s: float = Field(default=60.0, gt=0)
     embedding_timeout_s: float = Field(default=90.0, gt=0)
@@ -196,6 +210,12 @@ class Settings(BaseSettings):
             raise ValueError("HTTP_RETRY_MAX_S must be >= HTTP_RETRY_BASE_S")
         if self.retrieval_prefetch_limit < self.retrieval_top_k:
             raise ValueError("RETRIEVAL_PREFETCH_LIMIT must be >= RETRIEVAL_TOP_K")
+        if self.candidate_pool < self.retrieval_top_k:
+            raise ValueError("CANDIDATE_POOL must be >= RETRIEVAL_TOP_K")
+        if self.candidate_pool < self.max_k:
+            raise ValueError("CANDIDATE_POOL must be >= MAX_K")
+        if self.max_k < self.min_k:
+            raise ValueError("MAX_K must be >= MIN_K")
         if self.ingestion_retry_max_s < self.ingestion_retry_base_s:
             raise ValueError("INGESTION_RETRY_MAX_S must be >= INGESTION_RETRY_BASE_S")
         if self.ingestion_time_limit_s <= self.ingestion_soft_time_limit_s:

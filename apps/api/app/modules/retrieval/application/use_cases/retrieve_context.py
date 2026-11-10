@@ -15,6 +15,7 @@ from app.modules.retrieval.application.dto.retrieval import (
 )
 from app.modules.retrieval.application.ports.image_catalog import ImageCatalogPort
 from app.modules.retrieval.application.ports.image_url_builder import ImageUrlBuilderPort
+from app.modules.retrieval.application.selection_service import SelectionService
 from app.modules.retrieval.domain.lexical import lexical_coverage
 from app.modules.vector_store.application.dto.search import SparseVector
 from app.modules.vector_store.application.ports.sparse_encoder import SparseEncoderPort
@@ -35,6 +36,8 @@ class RetrieveContextUseCase:
         image_urls: ImageUrlBuilderPort,
         *,
         default_top_k: int,
+        selection: SelectionService | None = None,
+        candidate_pool: int = 20,
     ) -> None:
         if default_top_k < 1:
             raise ValueError("default_top_k must be >= 1")
@@ -44,17 +47,23 @@ class RetrieveContextUseCase:
         self._images = images
         self._image_urls = image_urls
         self._default_top_k = default_top_k
+        self._selection = selection
+        self._candidate_pool = candidate_pool
 
     async def execute(
         self,
         query: str,
         doc_id: str | None = None,
         top_k: int | None = None,
+        *,
+        selection_mode: str | None = None,
     ) -> RetrievalResult:
         normalized_query = query.strip()
         if not normalized_query:
             raise BadRequestError("query must not be blank")
-        limit = top_k if top_k is not None else self._default_top_k
+        mode = self._effective_mode(selection_mode)
+        default_limit = self._candidate_pool if mode == "dynamic" else self._default_top_k
+        limit = top_k if top_k is not None else default_limit
         if limit < 1:
             raise BadRequestError("top_k must be >= 1")
         if limit > 100:
@@ -79,7 +88,7 @@ class RetrieveContextUseCase:
             limit,
             doc_id=doc_id,
         )
-        chunks = tuple(
+        candidates = tuple(
             RetrievedChunk(
                 chunk=hit.chunk,
                 score=float(hit.score),
@@ -89,15 +98,28 @@ class RetrieveContextUseCase:
                 dense_score=hit.dense_score,
                 sparse_score=hit.sparse_score,
                 dense_cosine=hit.dense_cosine,
+                sparse_indices=hit.sparse_indices,
+                dense_vector=hit.dense_vector,
             )
             for hit in hits
         )
-        top_score = max((item.relevance_score for item in chunks), default=0.0)
-        images = await self._resolve_images(chunks)
         coverage = lexical_coverage(
             sparse.indices,
             [hit.sparse_indices for hit in hits],
         )
+        if self._selection is not None:
+            outcome = await self._selection.select(
+                candidates,
+                query_term_ids=tuple(sparse.indices),
+                mode=mode,
+            )
+            selected = outcome.chunks
+            selection_debug = outcome.debug
+        else:
+            selected = candidates
+            selection_debug = None
+        top_score = max((item.relevance_score for item in selected), default=0.0)
+        images = await self._resolve_images(selected)
         debug = RetrievalDebug(
             retrieved=tuple(
                 RetrievalDebugHit(
@@ -114,16 +136,24 @@ class RetrieveContextUseCase:
                     sparse_score=item.sparse_score,
                     dense_cosine=item.dense_cosine,
                 )
-                for item in chunks
+                for item in candidates
             ),
             lexical_coverage=coverage,
+            selection=selection_debug,
         )
         return RetrievalResult(
-            chunks=chunks,
+            chunks=selected,
             images=tuple(images),
             top_score=top_score,
             debug=debug,
         )
+
+    def _effective_mode(self, requested: str | None) -> str:
+        if self._selection is None:
+            return "static"
+        if requested in {"static", "dynamic"}:
+            return requested
+        return self._selection.mode
 
     async def _resolve_images(
         self,

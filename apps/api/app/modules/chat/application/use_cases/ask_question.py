@@ -9,6 +9,10 @@ from app.modules.chat.application.answer_parser import (
     normalize_used_sources,
     parse_llm_answer,
 )
+from app.modules.chat.application.context_formatter import (
+    ContextFormatterPort,
+    VerboseContextFormatter,
+)
 from app.modules.chat.application.dto.chat import (
     INSUFFICIENT_ANSWER,
     ChatAnswer,
@@ -46,6 +50,7 @@ class AskQuestionUseCase:
         *,
         history_turns: int,
         min_score: float,
+        context_formatter: ContextFormatterPort | None = None,
     ) -> None:
         if history_turns < 1:
             raise ValueError("history_turns must be >= 1")
@@ -54,6 +59,7 @@ class AskQuestionUseCase:
         self._documents = documents
         self._conversations = conversations
         self._prompt_builder = prompt_builder
+        self._context_formatter = context_formatter or VerboseContextFormatter()
         self._history_turns = history_turns
         self._min_score = min_score
 
@@ -65,6 +71,7 @@ class AskQuestionUseCase:
         *,
         conversation_id: str | None = None,
         temperature: float | None = None,
+        selection_mode: str | None = None,
     ) -> ChatAnswer:
         started = time.perf_counter()
         usage = UsageTracker()
@@ -96,13 +103,36 @@ class AskQuestionUseCase:
             usage,
             temperature=temperature,
         )
-        retrieval = await self._retrieval.execute(standalone_query, doc_id=doc_id)
-        usage.observe_retrieval(
-            retrieval.chunks,
-            context=self._prompt_builder.format_context(retrieval.chunks),
+        retrieval = await self._retrieval.execute(
+            standalone_query,
+            doc_id=doc_id,
+            selection_mode=selection_mode,
         )
+        selection = retrieval.debug.selection
+        if selection is not None and selection.decision == "REJECT":
+            usage.chunks_retrieved = len(retrieval.debug.retrieved)
+            return await self._finish(
+                normalized_query,
+                INSUFFICIENT_ANSWER,
+                False,
+                (),
+                (),
+                retrieval,
+                conversation_key,
+                usage,
+                started,
+            )
+        document_names = await self._document_names(retrieval.chunks)
+        context = self._context_formatter.format(
+            retrieval.chunks,
+            document_names=document_names,
+        )
+        usage.observe_retrieval(retrieval.chunks, context=context)
+        usage.chunks_retrieved = len(retrieval.debug.retrieved)
 
-        if retrieval.top_score < self._min_score:
+        if (selection is None or selection.mode == "static") and (
+            retrieval.top_score < self._min_score
+        ):
             return await self._finish(
                 normalized_query,
                 INSUFFICIENT_ANSWER,
@@ -119,7 +149,7 @@ class AskQuestionUseCase:
         prompt_parts = self._prompt_builder.build_answer_parts(
             normalized_query,
             effective_history,
-            retrieval.chunks,
+            context,
         )
         answer_prompt = prompt_parts.text
         system = self._prompt_builder.system_prompt()
@@ -178,7 +208,7 @@ class AskQuestionUseCase:
                 started,
             )
 
-        sources = await self._sources(retrieval.chunks, cited)
+        sources = await self._sources(retrieval.chunks, cited, document_names)
         images = tuple(
             ChatImage(url=image.url, page=image.page, bbox=image.bbox)
             for image in retrieval.images
@@ -221,23 +251,29 @@ class AskQuestionUseCase:
         rewritten = " ".join(result.text.strip().strip("\"'").split())
         return rewritten or query
 
+    async def _document_names(
+        self,
+        chunks: Sequence[RetrievedChunk],
+    ) -> dict[str, str]:
+        names: dict[str, str] = {}
+        for document_id in {item.chunk.doc_id for item in chunks}:
+            try:
+                document = await self._documents.get(document_id)
+                names[document_id] = document.filename
+            except AppError:
+                names[document_id] = document_id
+        return names
+
     async def _sources(
         self,
         chunks: Sequence[RetrievedChunk],
         cited: set[int],
+        document_names: dict[str, str],
     ) -> tuple[Source, ...]:
         selected = [(index, item) for index, item in enumerate(chunks, start=1) if index in cited]
-        document_ids = {item.chunk.doc_id for _, item in selected}
-        filenames: dict[str, str] = {}
-        for document_id in document_ids:
-            try:
-                document = await self._documents.get(document_id)
-                filenames[document_id] = document.filename
-            except AppError:
-                filenames[document_id] = document_id
         return tuple(
             Source(
-                file=filenames.get(item.chunk.doc_id, item.chunk.doc_id),
+                file=document_names.get(item.chunk.doc_id, item.chunk.doc_id),
                 page=item.chunk.page,
                 bbox=item.chunk.bbox,
                 section_path=item.chunk.section_path,

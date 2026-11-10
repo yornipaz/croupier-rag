@@ -7,6 +7,11 @@ from redis.asyncio import Redis
 
 from app.config.settings import Settings
 from app.modules.ai.application.ports.llm import LLMPort
+from app.modules.chat.application.context_formatter import (
+    CompactContextFormatter,
+    ContextFormatterPort,
+    VerboseContextFormatter,
+)
 from app.modules.chat.application.prompt_builder import PromptBuilder
 from app.modules.chat.application.use_cases.ask_question import AskQuestionUseCase
 from app.modules.chat.infrastructure.conversations import RedisConversationRepository
@@ -54,8 +59,15 @@ def build_chat_services(
             PromptBuilder(),
             history_turns=settings.chat_history_turns,
             min_score=settings.retrieval_min_score,
+            context_formatter=_context_formatter(settings),
         )
     )
+
+
+def _context_formatter(settings: Settings) -> ContextFormatterPort:
+    if settings.context_format == "compact":
+        return CompactContextFormatter()
+    return VerboseContextFormatter()
 
 
 def build_chat_router(settings: Settings) -> APIRouter:

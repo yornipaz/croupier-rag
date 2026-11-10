@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import replace
 from datetime import UTC, datetime
 
 from app.modules.ai.application.dto.llm import LLMResult, ResponseSchema
@@ -11,7 +12,10 @@ from app.modules.chat.application.dto.chat import (
 from app.modules.chat.application.prompt_builder import PromptBuilder
 from app.modules.chat.application.use_cases.ask_question import AskQuestionUseCase
 from app.modules.documents.application.dto.document import Document
-from app.modules.retrieval.application.dto.retrieval import RetrievalResult
+from app.modules.retrieval.application.dto.retrieval import (
+    RetrievalResult,
+    SelectionDebug,
+)
 from tests.modules.chat.helpers import retrieval_result
 
 
@@ -25,8 +29,10 @@ class FakeRetriever:
         query: str,
         doc_id: str | None = None,
         top_k: int | None = None,
+        *,
+        selection_mode: str | None = None,
     ) -> RetrievalResult:
-        _ = doc_id, top_k
+        _ = doc_id, top_k, selection_mode
         self.queries.append(query)
         return self.result
 
@@ -248,6 +254,38 @@ async def test_temperature_is_forwarded_to_every_llm_call() -> None:
     await use_case.execute("¿Y el A-200?", history, temperature=0.0)
 
     assert llm.temperatures == [0.0, 0.0]
+
+
+async def test_gate_reject_returns_fallback_without_calling_the_llm() -> None:
+    use_case, retriever, llm, _ = _use_case(responses=[])
+    selected = SelectionDebug(
+        mode="dynamic",
+        enabled=True,
+        decision="REJECT",
+        signals={
+            "denseTop1": 0.2,
+            "denseSeparation": 0.01,
+            "lexicalCoverage": 0.1,
+        },
+        thresholds={"denseTop1": 0.5, "lexicalCoverage": 0.6},
+        kept=(),
+        dropped=(),
+    )
+    base = retrieval_result()
+    retriever.result = replace(
+        base,
+        chunks=(),
+        debug=replace(base.debug, selection=selected),
+    )
+
+    answer = await use_case.execute("¿Pregunta fuera del corpus?", [])
+
+    assert answer.answer == INSUFFICIENT_ANSWER
+    assert answer.sufficient is False
+    assert llm.calls == 0
+    assert answer.usage.llm_called is False
+    assert answer.usage.chunks_sent == 0
+    assert answer.usage.prompt_tokens == 0
 
 
 async def test_provider_usage_metadata_takes_precedence_over_estimates() -> None:

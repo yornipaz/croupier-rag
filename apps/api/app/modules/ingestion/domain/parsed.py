@@ -15,6 +15,7 @@ class ParsedBlock:
     text: str | None = None
     font_size: float | None = None
     is_bold: bool = False
+    is_italic: bool = False
     image_id: str | None = None
     section_path: tuple[str, ...] = ()
     image_ids: tuple[str, ...] = ()

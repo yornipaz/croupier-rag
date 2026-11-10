@@ -32,6 +32,8 @@ services:
       QDRANT_URL: http://qdrant:6333
       DATA_DIR: /data
       ENV: ${ENV:-local}
+      CONTEXT_FORMAT: ${CONTEXT_FORMAT:-verbose}
+      SELECTION_MODE: ${SELECTION_MODE:-static}
       HF_HOME: /data/cache/huggingface
       FASTEMBED_CACHE_PATH: /data/cache/fastembed
     volumes:

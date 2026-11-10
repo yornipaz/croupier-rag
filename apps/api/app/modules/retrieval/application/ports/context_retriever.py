@@ -11,4 +11,6 @@ class ContextRetrieverPort(Protocol):
         query: str,
         doc_id: str | None = None,
         top_k: int | None = None,
+        *,
+        selection_mode: str | None = None,
     ) -> RetrievalResult: ...

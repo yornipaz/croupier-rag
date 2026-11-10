@@ -7,6 +7,7 @@ from app.modules.retrieval.application.dto.retrieval import (
     RetrievalResult,
     RetrievedChunk,
     RetrievedImage,
+    SelectionDebug,
 )
 from app.shared.chunks import BBox
 from app.shared.schemas import CamelModel
@@ -100,9 +101,40 @@ class RetrievalDebugHitSchema(CamelModel):
     sparse_score: float | None = None
 
 
+class SelectionDropSchema(CamelModel):
+    chunk_id: str
+    reason: str
+
+
+class SelectionDebugSchema(CamelModel):
+    mode: str
+    enabled: bool
+    decision: str
+    signals: dict[str, float]
+    thresholds: dict[str, float]
+    kept: list[str]
+    dropped: list[SelectionDropSchema]
+
+    @classmethod
+    def from_dto(cls, selection: SelectionDebug) -> SelectionDebugSchema:
+        return cls(
+            mode=selection.mode,
+            enabled=selection.enabled,
+            decision=selection.decision,
+            signals=selection.signals,
+            thresholds=selection.thresholds,
+            kept=list(selection.kept),
+            dropped=[
+                SelectionDropSchema(chunk_id=item.chunk_id, reason=item.reason)
+                for item in selection.dropped
+            ],
+        )
+
+
 class RetrievalDebugSchema(CamelModel):
     retrieved: list[RetrievalDebugHitSchema]
     lexical_coverage: float
+    selection: SelectionDebugSchema | None = None
 
     @classmethod
     def from_dto(cls, debug: RetrievalDebug) -> RetrievalDebugSchema:
@@ -127,6 +159,9 @@ class RetrievalDebugSchema(CamelModel):
                 for item in debug.retrieved
             ],
             lexical_coverage=debug.lexical_coverage,
+            selection=SelectionDebugSchema.from_dto(debug.selection)
+            if debug.selection is not None
+            else None,
         )
 
 

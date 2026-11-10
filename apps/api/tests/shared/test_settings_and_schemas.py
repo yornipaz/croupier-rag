@@ -53,6 +53,11 @@ def test_settings_defaults_and_derived_flags() -> None:
     assert settings.llm_timeout_s == 60
     assert settings.breaker_failure_threshold == 5
     assert settings.breaker_recovery_s == 30
+    assert settings.selection_mode == "static"
+    assert settings.context_format == "verbose"
+    assert settings.candidate_pool == 20
+    assert settings.context_token_budget == 1800
+    assert settings.token_estimate_factor == 1.32
     assert settings.resolved_data_dir.is_absolute()
 
 
@@ -75,6 +80,14 @@ def test_settings_reject_inconsistent_chunking(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setenv("CHUNK_OVERLAP_TOKENS", "100")
 
     with pytest.raises(ValueError, match="CHUNK_OVERLAP_TOKENS"):
+        Settings(_env_file=None)
+
+
+def test_settings_validate_selection_limits(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CANDIDATE_POOL", "4")
+    monkeypatch.setenv("RETRIEVAL_TOP_K", "8")
+
+    with pytest.raises(ValueError, match="CANDIDATE_POOL"):
         Settings(_env_file=None)
 
 

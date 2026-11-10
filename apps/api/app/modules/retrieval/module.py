@@ -9,9 +9,14 @@ from app.config.settings import Settings
 from app.modules.ai.application.ports.embedding import EmbeddingPort
 from app.modules.retrieval.application.ports.image_catalog import ImageCatalogPort
 from app.modules.retrieval.application.ports.image_url_builder import ImageUrlBuilderPort
+from app.modules.retrieval.application.selection_service import (
+    SelectionConfig,
+    SelectionService,
+)
 from app.modules.retrieval.application.use_cases.retrieve_context import (
     RetrieveContextUseCase,
 )
+from app.modules.retrieval.infrastructure.calibration import FileCalibrationStore
 from app.modules.retrieval.infrastructure.image_catalog import FileSystemImageCatalog
 from app.modules.retrieval.infrastructure.image_urls import CropImageUrlBuilder
 from app.modules.retrieval.presentation.router import router
@@ -44,6 +49,24 @@ def build_retrieval_services(
     data_dir: Path = settings.resolved_data_dir
     catalog = images or FileSystemImageCatalog(data_dir)
     urls = image_urls or CropImageUrlBuilder(settings.api_prefix)
+    calibration = FileCalibrationStore(
+        data_dir / "calibration.json",
+        expected_embedding_model=settings.embedding_model,
+    )
+    selection = SelectionService(
+        SelectionConfig(
+            mode=settings.selection_mode,
+            min_k=settings.min_k,
+            max_k=settings.max_k,
+            rel_ratio=settings.rel_ratio,
+            gap_ratio=settings.gap_ratio,
+            mmr_lambda=settings.mmr_lambda,
+            duplicate_threshold=settings.mmr_duplicate_threshold,
+            context_token_budget=settings.context_token_budget,
+            token_estimate_factor=settings.token_estimate_factor,
+        ),
+        calibration=calibration,
+    )
     return RetrievalServices(
         retrieve_context=RetrieveContextUseCase(
             embedding,
@@ -52,6 +75,8 @@ def build_retrieval_services(
             catalog,
             urls,
             default_top_k=settings.retrieval_top_k,
+            selection=selection,
+            candidate_pool=settings.candidate_pool,
         )
     )
 
