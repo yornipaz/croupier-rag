@@ -1,32 +1,53 @@
 # Evaluación
 
-Carpeta reservada para el conjunto de evaluación del RAG. Todavía no contiene casos: el pipeline de
-ingesta y chat se implementa en fases posteriores.
+Harness reproducible para comparar versiones del RAG sobre un manual técnico.
 
-## Qué mediremos
+## Dataset
 
-| Dimensión | Métrica | Cómo |
-| --- | --- | --- |
-| Recuperación | Hit@k y MRR | Preguntas con `doc_id` + página esperada. |
-| Grounding | Citas correctas / respuestas | Cada `[S1]` debe existir en las fuentes y sustentar la afirmación. |
-| Defensividad | Falsos positivos | Preguntas fuera del corpus deben responder "No tengo información suficiente". |
-| Contexto visual | Imagen relevante | La imagen devuelta debe corresponder a la figura citada. |
-| Resiliencia | Comportamiento ante 429/5xx/timeout | Retry acotado y breaker abierto sin filtrar trazas. |
-| Latencia | p50 / p95 | Ingesta por página y `POST /chat/ask`. |
+- `golden.draft.json`: borrador generado a partir de `Manual de usuario app.pdf`.
+- `golden.json`: dataset revisado y definitivo (renombrar el borrador cuando esté validado).
 
-## Formato propuesto de caso
+Cada caso usa este contrato:
 
 ```json
 {
-  "id": "pump-001",
-  "question": "¿Qué presión máxima admite la bomba?",
-  "expected": {
-    "document": "manual-bomba.pdf",
-    "page": 42,
-    "answerContains": ["10 bar"],
-    "imageId": "fig-3"
-  }
+  "id": "text-01",
+  "question": "¿En qué lenguaje está desarrollada la aplicación?",
+  "expected_pages": [3],
+  "needs_figure": false,
+  "should_refuse": false,
+  "notes": "La página 3 indica Node.js."
 }
 ```
 
-Los casos reales se añadirán junto con los PDFs de ejemplo en la fase de evaluación.
+`expected_pages` es 1-based. En preguntas de rechazo va vacío y `should_refuse=true`.
+
+## Ejecución
+
+```bash
+make eval-baseline   # guarda eval/results/baseline.json
+make eval            # guarda eval/results/latest.json
+make eval-compare    # compara latest contra baseline
+```
+
+Variables: `DEMO_PDF` (ruta del PDF, admite espacios) y `API_URL` (default
+`http://localhost:8000`; el script detecta `API_PREFIX`/`/v1` automáticamente).
+
+El script sube el PDF si hace falta (`--ensure-doc`) y espera a que el job de
+ingesta quede `COMPLETED`.
+
+## Métricas
+
+| Dimensión | Métrica |
+| --- | --- |
+| Recuperación | `hit@k`: alguna `expected_pages` entre las fuentes devueltas |
+| Contexto visual | `figure_hit`: respuesta con imagen para casos `needs_figure` |
+| Defensividad | `refusal_correct`: `should_refuse` coincide con `sufficient=false` |
+| Coste | media y p95 de `contextTokens`, `promptTokens`, `chunksSent` |
+| Uso del LLM | tasa de `llmCalled` |
+| Latencia | p50 y p95 de `usage.latencyMs` |
+
+`usage` de `POST /chat/ask` usa los metadatos del proveedor cuando existen. Si
+no, estima tokens con `count_tokens` (palabras y signos como unidades), el mismo
+contador que usa el chunker. Un rechazo sin llamada al LLM reporta
+`llmCalled=false` y `completionTokens=0`.

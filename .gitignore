@@ -28,6 +28,10 @@ data/
 # Demo artifacts
 demo/out/
 
+# Eval artifacts (the baseline is the versioned reference)
+eval/results/*
+!eval/results/baseline.json
+
 # Editors / OS
 .idea/
 .vscode/

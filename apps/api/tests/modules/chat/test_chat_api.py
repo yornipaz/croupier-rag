@@ -6,7 +6,13 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.modules.chat.application.dto.chat import ChatAnswer, ChatImage, ChatTurn, Source
+from app.modules.chat.application.dto.chat import (
+    ChatAnswer,
+    ChatImage,
+    ChatTurn,
+    ChatUsage,
+    Source,
+)
 from app.modules.chat.presentation.router import (
     get_ask_question_use_case,
     router,
@@ -34,6 +40,15 @@ class FakeAsk:
                     page=1,
                     bbox=(10.0, 30.0, 100.0, 80.0),
                 ),
+            ),
+            usage=ChatUsage(
+                chunks_retrieved=2,
+                chunks_sent=2,
+                context_tokens=12,
+                prompt_tokens=80,
+                completion_tokens=10,
+                latency_ms=42,
+                llm_called=True,
             ),
             debug=debug,
         )
@@ -85,6 +100,15 @@ def test_chat_api_returns_grounded_answer_without_debug() -> None:
     assert body["sources"][0]["file"] == "manual.pdf"
     assert body["sources"][0]["sectionPath"] == ["Manual"]
     assert body["images"][0]["url"].startswith("/documents/doc-1/")
+    assert body["usage"] == {
+        "chunksRetrieved": 2,
+        "chunksSent": 2,
+        "contextTokens": 12,
+        "promptTokens": 80,
+        "completionTokens": 10,
+        "latencyMs": 42,
+        "llmCalled": True,
+    }
     assert "debug" not in body
     assert fake.calls[0]["query"] == "¿Qué voltaje usa?"
     assert fake.calls[0]["doc_id"] == "doc-1"

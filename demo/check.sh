@@ -5,6 +5,7 @@ set -euo pipefail
 MODE="${1:-full}"
 DEMO_DIR="${DEMO_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 DEMO_PDF="${DEMO_PDF:-${HOME}/Downloads/Manual de usuario app.pdf}"
+PYTHON="${PYTHON:-python3}"
 
 fail() {
   printf '\n[demo-check] ERROR: %s\n\n' "$*" >&2
@@ -25,12 +26,14 @@ node -e "const major=Number(process.versions.node.split('.')[0]); if (major < 22
   || fail "Falta el paquete yaml. Ejecuta: cd demo && npm install"
 
 if [[ "$MODE" != "dry" ]]; then
-  need_cmd ffmpeg "Instala ffmpeg con: sudo apt install ffmpeg (o brew install ffmpeg)."
-  need_cmd ffprobe "Instala ffmpeg con: sudo apt install ffmpeg (o brew install ffmpeg)."
-  python3 -c "import edge_tts" 2>/dev/null \
-    || fail "Falta edge-tts. Ejecuta: python3 -m pip install --user edge-tts"
-  python3 -c "import yaml" 2>/dev/null \
-    || fail "Falta PyYAML. Ejecuta: python3 -m pip install --user pyyaml"
+  FFMPEG="${FFMPEG:-ffmpeg}"
+  FFPROBE="${FFPROBE:-ffprobe}"
+  need_cmd "$FFMPEG" "Instala ffmpeg con: sudo apt install ffmpeg (o brew install ffmpeg)."
+  need_cmd "$FFPROBE" "Instala ffmpeg con: sudo apt install ffmpeg (o brew install ffmpeg)."
+  "$PYTHON" -c "import edge_tts" 2>/dev/null \
+    || fail "Falta edge-tts. Ejecuta: $PYTHON -m pip install --user edge-tts"
+  "$PYTHON" -c "import yaml" 2>/dev/null \
+    || fail "Falta PyYAML. Ejecuta: $PYTHON -m pip install --user pyyaml"
 fi
 
 [[ -f "$DEMO_PDF" ]] \

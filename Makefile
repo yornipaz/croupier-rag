@@ -6,8 +6,12 @@ DEMO_PDF ?= $(HOME)/Downloads/Manual de usuario app.pdf
 PYTHON ?= python3
 NODE ?= node
 
+EVAL_DIR := $(CURDIR)/eval
+API_URL ?= http://localhost:8000
+
 .PHONY: help install lock dev worker test lint fmt mypy lint-arch quality up down logs ps build clean \
-	demo demo-dry demo-check demo-tts demo-record demo-build demo-deps demo-clean
+	demo demo-dry demo-check demo-tts demo-record demo-build demo-deps demo-clean \
+	eval eval-baseline eval-compare
 
 help:
 	@echo "install     Instala dependencias Python (uv + Python 3.12)"
@@ -21,6 +25,9 @@ help:
 	@echo "lint-arch   import-linter"
 	@echo "quality     lint + mypy + lint-arch + test"
 	@echo "up / down   docker compose"
+	@echo "eval        Evalúa el RAG y guarda eval/results/latest.json"
+	@echo "eval-baseline  Evalúa y guarda eval/results/baseline.json"
+	@echo "eval-compare   Compara latest contra baseline"
 	@echo "demo        Genera demo/out/demo.mp4 (TTS + grabación + montaje)"
 	@echo "demo-dry    Recorre el flujo sin grabar (valida selectores)"
 	@echo "demo-clean  Borra demo/out"
@@ -54,6 +61,21 @@ lint-arch:
 	cd $(API_DIR) && uv run lint-imports
 
 quality: lint mypy lint-arch test
+
+# ---------------------------------------------------------------------------
+# Evaluación del RAG
+# ---------------------------------------------------------------------------
+eval:
+	@cd $(API_DIR) && DEMO_PDF="$(DEMO_PDF)" API_URL="$(API_URL)" \
+		uv run python "$(EVAL_DIR)/run_eval.py" --label latest --ensure-doc
+
+eval-baseline:
+	@cd $(API_DIR) && DEMO_PDF="$(DEMO_PDF)" API_URL="$(API_URL)" \
+		uv run python "$(EVAL_DIR)/run_eval.py" --label baseline --ensure-doc
+
+eval-compare:
+	@cd $(API_DIR) && uv run python "$(EVAL_DIR)/run_eval.py" \
+		--label latest --compare "$(EVAL_DIR)/results/baseline.json"
 
 up:
 	docker compose up --build
@@ -90,7 +112,8 @@ demo-dry:
 		$(NODE) --experimental-strip-types --no-warnings "$(DEMO_DIR)/record.ts" --dry-run
 
 demo-check:
-	@DEMO_DIR="$(DEMO_DIR)" DEMO_PDF="$(DEMO_PDF)" bash "$(DEMO_DIR)/check.sh" "$(MODE)"
+	@DEMO_DIR="$(DEMO_DIR)" DEMO_PDF="$(DEMO_PDF)" PYTHON="$(PYTHON)" \
+		bash "$(DEMO_DIR)/check.sh" "$(MODE)"
 
 demo-tts:
 	@DEMO_PDF="$(DEMO_PDF)" DEMO_DIR="$(DEMO_DIR)" $(PYTHON) "$(DEMO_DIR)/tts.py"

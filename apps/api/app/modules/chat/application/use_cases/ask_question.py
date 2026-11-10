@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from collections.abc import Sequence
 
 from app.modules.ai.application.ports.llm import LLMPort
@@ -17,6 +18,7 @@ from app.modules.chat.application.dto.chat import (
 )
 from app.modules.chat.application.ports.conversations import ConversationRepositoryPort
 from app.modules.chat.application.prompt_builder import PromptBuilder
+from app.modules.chat.application.usage import UsageTracker
 from app.modules.documents.application.ports.document_repository import (
     DocumentRepositoryPort,
 )
@@ -63,6 +65,8 @@ class AskQuestionUseCase:
         *,
         conversation_id: str | None = None,
     ) -> ChatAnswer:
+        started = time.perf_counter()
+        usage = UsageTracker()
         normalized_query = query.strip()
         if not normalized_query:
             raise BadRequestError("query must not be blank")
@@ -85,8 +89,9 @@ class AskQuestionUseCase:
             if stored:
                 effective_history = stored
 
-        standalone_query = await self._rewrite(normalized_query, effective_history)
+        standalone_query = await self._rewrite(normalized_query, effective_history, usage)
         retrieval = await self._retrieval.execute(standalone_query, doc_id=doc_id)
+        usage.observe_chunks(retrieval.chunks)
 
         if retrieval.top_score < self._min_score:
             return await self._finish(
@@ -97,6 +102,8 @@ class AskQuestionUseCase:
                 (),
                 retrieval,
                 conversation_key,
+                usage,
+                started,
             )
 
         llm = self._require_llm()
@@ -106,17 +113,21 @@ class AskQuestionUseCase:
             retrieval.chunks,
         )
         system = self._prompt_builder.system_prompt()
+        usage.mark_context_sent(retrieval.chunks)
         first_text = ""
         try:
             first = await llm.generate(answer_prompt, system=system)
+            usage.record_call(answer_prompt, system, first)
             first_text = first.text
             payload = parse_llm_answer(first.text)
         except InvalidLLMResponse:
+            repair_prompt = self._prompt_builder.build_repair_prompt(
+                answer_prompt,
+                first_text,
+            )
             try:
-                repaired = await llm.generate(
-                    self._prompt_builder.build_repair_prompt(answer_prompt, first_text),
-                    system=system,
-                )
+                repaired = await llm.generate(repair_prompt, system=system)
+                usage.record_call(repair_prompt, system, repaired)
                 payload = parse_llm_answer(repaired.text)
             except (InvalidLLMResponse, AppError):
                 logger.warning("chat.invalid_json_fallback")
@@ -128,6 +139,8 @@ class AskQuestionUseCase:
                     (),
                     retrieval,
                     conversation_key,
+                    usage,
+                    started,
                 )
 
         cited = set(normalize_used_sources(payload.used_sources))
@@ -142,6 +155,8 @@ class AskQuestionUseCase:
                 (),
                 retrieval,
                 conversation_key,
+                usage,
+                started,
             )
 
         sources = await self._sources(retrieval.chunks, cited)
@@ -158,16 +173,23 @@ class AskQuestionUseCase:
             images,
             retrieval,
             conversation_key,
+            usage,
+            started,
         )
 
-    async def _rewrite(self, query: str, history: Sequence[ChatTurn]) -> str:
+    async def _rewrite(
+        self,
+        query: str,
+        history: Sequence[ChatTurn],
+        usage: UsageTracker,
+    ) -> str:
         if not history or self._llm is None:
             return query
+        prompt = self._prompt_builder.build_rewrite_prompt(query, history)
+        system = self._prompt_builder.rewrite_system()
         try:
-            result = await self._llm.generate(
-                self._prompt_builder.build_rewrite_prompt(query, history),
-                system=self._prompt_builder.rewrite_system(),
-            )
+            result = await self._llm.generate(prompt, system=system)
+            usage.record_call(prompt, system, result)
         except AppError:
             logger.warning("chat.rewrite_failed")
             return query
@@ -179,11 +201,7 @@ class AskQuestionUseCase:
         chunks: Sequence[RetrievedChunk],
         cited: set[int],
     ) -> tuple[Source, ...]:
-        selected = [
-            (index, item)
-            for index, item in enumerate(chunks, start=1)
-            if index in cited
-        ]
+        selected = [(index, item) for index, item in enumerate(chunks, start=1) if index in cited]
         document_ids = {item.chunk.doc_id for _, item in selected}
         filenames: dict[str, str] = {}
         for document_id in document_ids:
@@ -211,12 +229,16 @@ class AskQuestionUseCase:
         images: tuple[ChatImage, ...],
         retrieval: RetrievalResult,
         conversation_id: str | None,
+        usage: UsageTracker,
+        started: float,
     ) -> ChatAnswer:
+        latency_ms = max(0, round((time.perf_counter() - started) * 1000))
         response = ChatAnswer(
             answer=answer,
             sufficient=sufficient,
             sources=sources,
             images=images,
+            usage=usage.to_dto(latency_ms=latency_ms),
             debug=retrieval.debug,
         )
         if conversation_id:

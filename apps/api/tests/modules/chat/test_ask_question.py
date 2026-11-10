@@ -32,8 +32,13 @@ class FakeRetriever:
 
 
 class FakeLLM:
-    def __init__(self, responses: Sequence[str]) -> None:
+    def __init__(
+        self,
+        responses: Sequence[str],
+        usages: Sequence[dict[str, int] | None] | None = None,
+    ) -> None:
         self.responses = list(responses)
+        self.usages = list(usages or [])
         self.calls = 0
         self.prompts: list[str] = []
         self.systems: list[str | None] = []
@@ -50,7 +55,8 @@ class FakeLLM:
         self.systems.append(system)
         if not self.responses:
             raise AssertionError("LLM should not have been called")
-        return LLMResult(text=self.responses.pop(0), model="fake")
+        usage = self.usages.pop(0) if self.usages else None
+        return LLMResult(text=self.responses.pop(0), model="fake", usage=usage)
 
 
 class FakeDocuments:
@@ -110,10 +116,11 @@ def _use_case(
     *,
     top_score: float = 0.9,
     responses: Sequence[str] = (),
+    usages: Sequence[dict[str, int] | None] | None = None,
     conversations: FakeConversations | None = None,
 ) -> tuple[AskQuestionUseCase, FakeRetriever, FakeLLM, FakeConversations]:
     retriever = FakeRetriever(retrieval_result(top_score=top_score))
-    llm = FakeLLM(responses)
+    llm = FakeLLM(responses, usages)
     conversation_repo = conversations or FakeConversations()
     use_case = AskQuestionUseCase(
         retriever,
@@ -137,6 +144,13 @@ async def test_no_information_returns_fallback_without_calling_llm() -> None:
     assert answer.sources == ()
     assert answer.images == ()
     assert llm.calls == 0
+    assert answer.usage.llm_called is False
+    assert answer.usage.completion_tokens == 0
+    assert answer.usage.prompt_tokens == 0
+    assert answer.usage.chunks_sent == 0
+    assert answer.usage.chunks_retrieved == 2
+    assert answer.usage.context_tokens > 0
+    assert answer.usage.latency_ms >= 0
 
 
 async def test_valid_answer_filters_sources_and_images_to_cited_sources() -> None:
@@ -161,6 +175,39 @@ async def test_valid_answer_filters_sources_and_images_to_cited_sources() -> Non
     assert "Ignora" in (llm.systems[0] or "")
 
 
+async def test_valid_answer_records_estimated_usage_without_provider_metadata() -> None:
+    use_case, _, _, _ = _use_case(
+        responses=[
+            '{"answer":"El modelo A-200 usa 380 V [S2].","used_sources":["S2"],"sufficient":true}'
+        ]
+    )
+
+    answer = await use_case.execute("¿Qué voltaje tiene el A-200?", [])
+
+    assert answer.usage.llm_called is True
+    assert answer.usage.chunks_retrieved == 2
+    assert answer.usage.chunks_sent == 2
+    assert answer.usage.context_tokens > 0
+    assert answer.usage.prompt_tokens > 0
+    assert answer.usage.completion_tokens > 0
+    assert answer.usage.latency_ms >= 0
+
+
+async def test_provider_usage_metadata_takes_precedence_over_estimates() -> None:
+    use_case, _, _, _ = _use_case(
+        responses=[
+            '{"answer":"El modelo A-200 usa 380 V [S2].","used_sources":["S2"],"sufficient":true}'
+        ],
+        usages=[{"input_tokens": 123, "output_tokens": 7}],
+    )
+
+    answer = await use_case.execute("¿Qué voltaje tiene el A-200?", [])
+
+    assert answer.usage.prompt_tokens == 123
+    assert answer.usage.completion_tokens == 7
+    assert answer.usage.llm_called is True
+
+
 async def test_invalid_json_is_repaired_once() -> None:
     use_case, _, llm, _ = _use_case(
         responses=[
@@ -180,9 +227,7 @@ async def test_invalid_json_is_repaired_once() -> None:
 
 async def test_sufficient_answer_without_valid_citations_falls_back() -> None:
     use_case, _, _, _ = _use_case(
-        responses=[
-            '{"answer":"Una respuesta sin fuente","used_sources":["S99"],"sufficient":true}'
-        ]
+        responses=['{"answer":"Una respuesta sin fuente","used_sources":["S99"],"sufficient":true}']
     )
 
     answer = await use_case.execute("¿Qué voltaje tiene el A-100?", [])
@@ -223,9 +268,7 @@ async def test_history_rewrites_the_retrieval_query() -> None:
 
 
 async def test_conversation_history_is_loaded_and_appended() -> None:
-    conversations = FakeConversations(
-        stored=[ChatTurn(role="user", content="Pregunta previa")]
-    )
+    conversations = FakeConversations(stored=[ChatTurn(role="user", content="Pregunta previa")])
     use_case, retriever, _, _ = _use_case(
         top_score=0.1,
         responses=["consulta autónoma sobre la pregunta previa"],

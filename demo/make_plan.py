@@ -29,6 +29,7 @@ SRT_FILE = OUT_DIR / "subtitles.srt"
 MIN_VIDEO_SECONDS = 180.0
 MAX_VIDEO_SECONDS = 270.0
 CARD_PADDING = 0.6
+TRIM_HOLD = 2.5
 SRT_MAX_LINE = 42
 SRT_MAX_LINES = 2
 MIN_CUE_SECONDS = 0.9
@@ -96,8 +97,9 @@ def build_srt(plan_segments: list[dict[str, Any]]) -> str:
         cues = split_into_cues(segment["narration"])
         if not cues:
             continue
-        # Si hay demasiados cues para la duración, fusiona los últimos.
-        duration = float(segment["duration"])
+        # Los subtítulos siguen a la voz, no al relleno final del segmento.
+        duration = min(float(segment["duration"]), float(segment["audioDuration"]))
+        duration = max(0.35, duration)
         while len(cues) > 1 and duration / len(cues) < MIN_CUE_SECONDS:
             cues[-2] = f"{cues[-2]}\n{cues[-1]}"
             cues.pop()
@@ -146,20 +148,40 @@ def main() -> None:
         segment_id = script_segment["id"]
         action = script_segment["action"]
         audio_duration = float(script_segment["duration"])
+        minimum = round(audio_duration + CARD_PADDING, 3)
+        source_start = 0.0
+        source_duration = 0.0
+        trim_head = 0.0
+        trim_tail = 0.0
+        skipped = 0.0
+
         if action in {"intro", "outro"}:
             kind = "card"
-            duration = round(audio_duration + CARD_PADDING, 3)
+            duration = minimum
         else:
             kind = "app"
             timed = timeline_by_id[segment_id]
-            duration = round(float(timed["duration"]), 3)
-            minimum = round(audio_duration + CARD_PADDING, 3)
-            if duration + 0.08 < minimum:
+            source_start = round(float(timed["start"]), 3)
+            source_duration = round(float(timed["duration"]), 3)
+            if source_duration + 0.08 < minimum:
                 fail(
-                    f"`{segment_id}` dura {duration:.2f}s en el video, pero necesita "
+                    f"`{segment_id}` dura {source_duration:.2f}s en el video, pero necesita "
                     f"al menos {minimum:.2f}s (audio {audio_duration:.2f}s + 0.6s). "
                     "Vuelve a grabar con `make demo-record`."
                 )
+
+            # Recorta la espera muerta entre la narración y el resultado final.
+            # Conserva la cabecera narrada y una ventana corta con el estado que
+            # se quiere enseñar (documento listo, figura, respuesta, trazas…).
+            trim_head = round(min(minimum, source_duration), 3)
+            remaining = round(source_duration - trim_head, 3)
+            if remaining > TRIM_HOLD + 0.2:
+                trim_tail = round(TRIM_HOLD, 3)
+                skipped = round(remaining - trim_tail, 3)
+                duration = round(trim_head + trim_tail, 3)
+            else:
+                trim_tail = remaining
+                duration = source_duration
 
         plan_segments.append(
             {
@@ -168,11 +190,16 @@ def main() -> None:
                 "action": action,
                 "kind": kind,
                 "start": round(cursor, 3),
-                "duration": duration,
+                "duration": round(duration, 3),
                 "audio": script_segment["audio"],
                 "audioDuration": round(audio_duration, 3),
-                "minDuration": round(audio_duration + CARD_PADDING, 3),
+                "minDuration": minimum,
                 "narration": script_segment["narration"],
+                "sourceStart": source_start,
+                "sourceDuration": source_duration,
+                "trimHead": trim_head,
+                "trimTail": trim_tail,
+                "skipped": skipped,
             }
         )
         cursor += duration
@@ -181,11 +208,14 @@ def main() -> None:
     app_duration = round(
         sum(item["duration"] for item in plan_segments if item["kind"] == "app"), 3
     )
+    source_app_duration = round(
+        sum(item["sourceDuration"] for item in plan_segments if item["kind"] == "app"), 3
+    )
     content_duration = round(float(timeline.get("contentDuration", 0)), 3)
-    if abs(app_duration - content_duration) > 0.12:
+    if abs(source_app_duration - content_duration) > 0.12:
         fail(
-            f"El video de la app dura {content_duration:.2f}s, pero los segmentos suman "
-            f"{app_duration:.2f}s. Vuelve a grabar con `make demo-record`."
+            f"El video de la app dura {content_duration:.2f}s, pero los segmentos fuente suman "
+            f"{source_app_duration:.2f}s. Vuelve a grabar con `make demo-record`."
         )
 
     if total < MIN_VIDEO_SECONDS or total > MAX_VIDEO_SECONDS:

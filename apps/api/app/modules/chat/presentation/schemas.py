@@ -72,11 +72,22 @@ class ChatDebugSchema(CamelModel):
         )
 
 
+class ChatUsageSchema(CamelModel):
+    chunks_retrieved: int
+    chunks_sent: int
+    context_tokens: int
+    prompt_tokens: int
+    completion_tokens: int
+    latency_ms: int
+    llm_called: bool
+
+
 class ChatResponse(CamelModel):
     answer: str
     sufficient: bool
     sources: list[SourceSchema]
     images: list[ChatImageSchema]
+    usage: ChatUsageSchema
     debug: ChatDebugSchema | None = None
 
     @classmethod
@@ -102,6 +113,15 @@ class ChatResponse(CamelModel):
                 ChatImageSchema(url=image.url, page=image.page, bbox=image.bbox)
                 for image in answer.images
             ],
+            usage=ChatUsageSchema(
+                chunks_retrieved=answer.usage.chunks_retrieved,
+                chunks_sent=answer.usage.chunks_sent,
+                context_tokens=answer.usage.context_tokens,
+                prompt_tokens=answer.usage.prompt_tokens,
+                completion_tokens=answer.usage.completion_tokens,
+                latency_ms=answer.usage.latency_ms,
+                llm_called=answer.usage.llm_called,
+            ),
             debug=ChatDebugSchema.from_dto(answer.debug)
             if include_debug and answer.debug is not None
             else None,

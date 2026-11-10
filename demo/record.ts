@@ -68,6 +68,7 @@ const APP_URL = (process.env.APP_URL ?? 'http://localhost:4200').replace(/\/+$/,
 const DEMO_PDF = process.env.DEMO_PDF ?? join(process.env.HOME ?? '', 'Downloads', 'Manual de usuario app.pdf');
 const DRY_RUN = process.argv.includes('--dry-run');
 const HEADLESS = process.env.HEADLESS !== 'false';
+const CHROME_PATH = process.env.CHROME_PATH ?? process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 const ARCHITECTURE_URL = pathToFileURL(join(DEMO_DIR, 'assets', 'architecture.html')).href;
 
 const VIEWPORT = { width: 1920, height: 1080 };
@@ -401,6 +402,19 @@ async function typeQuestion(page: Page, question: string): Promise<void> {
   await sleep(180);
 }
 
+async function guardComposerSubmit(page: Page): Promise<void> {
+  // El compositor envía con (submit) pero no llama preventDefault. Al pulsar el
+  // botón, el navegador haría un submit nativo y cancelaría el POST (nginx 499).
+  // Este guard es solo de la demo: evita la navegación y conserva el clic visible.
+  await page.evaluate(() => {
+    const form = document.querySelector('app-chat-composer form');
+    if (form instanceof HTMLFormElement && !form.dataset['demoSubmitGuard']) {
+      form.dataset['demoSubmitGuard'] = '1';
+      form.addEventListener('submit', (event) => event.preventDefault(), true);
+    }
+  });
+}
+
 async function askQuestion(page: Page, question: string): Promise<void> {
   if (await alreadyAnswered(page, question)) {
     log(`la última respuesta ya corresponde a «${question.slice(0, 48)}…»; no la repito`);
@@ -408,6 +422,7 @@ async function askQuestion(page: Page, question: string): Promise<void> {
   }
   const previous = await countAssistantMessages(page);
   await typeQuestion(page, question);
+  await guardComposerSubmit(page);
   await clickTestId(page, 'chat-send');
   await waitForAnswer(page, previous);
   await sleep(250);
@@ -722,6 +737,18 @@ async function performAuditorEnable(page: Page, question: string): Promise<void>
     await tid(page, 'retrieval-inspector').waitFor({ state: 'hidden', timeout: 15000 });
   }
   await enableAuditor(page);
+
+  // AuditModeService.toggle() abre el drawer automáticamente. Lo mostramos un
+  // instante y lo cerramos para poder escribir la pregunta; el siguiente
+  // segmento lo vuelve a abrir con las trazas ya cargadas.
+  const inspector = tid(page, 'retrieval-inspector');
+  if ((await inspector.count()) > 0 && (await inspector.first().isVisible())) {
+    await moveMouse(page, VIEWPORT.width - 160, 220);
+    await sleep(450);
+    await clickTestId(page, 'inspector-close');
+    await inspector.first().waitFor({ state: 'hidden', timeout: 15000 });
+  }
+
   await askQuestion(page, question);
   await moveToTestId(page, 'assistant-message');
   await sleep(250);
@@ -744,7 +771,16 @@ async function performAuditorTraces(page: Page): Promise<void> {
     await sleep(300);
     await moveMouse(page, box.x + box.width * 0.75, box.y + box.height - 35);
   }
-  await moveToTestId(page, 'inspector-best-score');
+  const bestScore = page.locator('[data-testid="inspector-best-score"]').last();
+  await bestScore.scrollIntoViewIfNeeded();
+  const scoreBox = await bestScore.boundingBox();
+  if (scoreBox) {
+    await moveMouse(
+      page,
+      scoreBox.x + scoreBox.width / 2,
+      scoreBox.y + scoreBox.height / 2,
+    );
+  }
   await sleep(300);
 }
 
@@ -1023,6 +1059,7 @@ async function main(): Promise<void> {
   try {
     browser = await chromium.launch({
       headless: HEADLESS,
+      ...(CHROME_PATH ? { executablePath: CHROME_PATH } : {}),
       args: [
         '--force-device-scale-factor=1',
         '--force-color-profile=srgb',

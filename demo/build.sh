@@ -32,7 +32,6 @@ command -v "$FFPROBE" >/dev/null 2>&1 || fail "No encuentro ffprobe. Instálalo 
 [[ -f "$FONT_BOLD" ]] || fail "No encuentro la fuente $FONT_BOLD. Define DEMO_FONT_BOLD."
 [[ -f "$FONT_REGULAR" ]] || fail "No encuentro la fuente $FONT_REGULAR. Define DEMO_FONT_REGULAR."
 [[ -f "$APP_WEBM" ]] || fail "No existe $APP_WEBM. Ejecuta antes: make demo-record"
-[[ -f "$PLAN" ]] || fail "No existe $PLAN. Ejecuta antes: make demo-tts && make demo-record"
 
 log "planificando duraciones y subtítulos…"
 python3 "${DEMO_DIR}/make_plan.py"
@@ -57,7 +56,7 @@ PY
 )"
 
 log "generando tarjeta de título (${intro_duration}s)…"
-"$FFMPEG" -y -hide_banner -loglevel error \
+"$FFMPEG" -nostdin -y -hide_banner -loglevel error \
   -f lavfi -i "color=c=${BG}:s=1920x1080:r=30:d=${intro_duration}" \
   -vf "drawbox=x=0:y=0:w=1920:h=1080:color=${BG}:t=fill,\
 drawbox=x=360:y=300:w=1200:h=2:color=${GOLD}@0.85:t=fill,\
@@ -70,7 +69,7 @@ drawtext=fontfile=${FONT_BOLD}:text='Yorni Felipe Bonilla Paz':fontcolor=${INK}:
   -t "$intro_duration" "${CARDS_DIR}/intro.mp4"
 
 log "generando tarjeta de cierre (${outro_duration}s)…"
-"$FFMPEG" -y -hide_banner -loglevel error \
+"$FFMPEG" -nostdin -y -hide_banner -loglevel error \
   -f lavfi -i "color=c=${BG}:s=1920x1080:r=30:d=${outro_duration}" \
   -vf "drawbox=x=0:y=0:w=1920:h=1080:color=${BG}:t=fill,\
 drawbox=x=360:y=330:w=1200:h=2:color=${GOLD}@0.85:t=fill,\
@@ -82,35 +81,72 @@ drawtext=fontfile=${FONT_BOLD}:text='Yorni Felipe Bonilla Paz':fontcolor=${INK}:
   -t "$outro_duration" "${CARDS_DIR}/outro.mp4"
 
 # ---------------------------------------------------------------------------
-# 2. Video de la app recortado a la ventana grabada
+# 2. Video de la app: un clip por segmento
+#
+# make_plan.py recorta la espera muerta de los segmentos largos (por ejemplo,
+# los segundos que tarda el LLM o la ingesta) conservando la cabecera narrada y
+# una ventana corta con el resultado. Así el video no se dispara de duración y
+# cada segmento sigue durando al menos audio + 0.6 s.
 # ---------------------------------------------------------------------------
 content_start="$(python3 - "$PLAN" <<'PY'
 import json, sys
 print(json.load(open(sys.argv[1], encoding="utf-8"))["video"]["contentStart"])
 PY
 )"
-content_duration="$(python3 - "$PLAN" <<'PY'
-import json, sys
-print(json.load(open(sys.argv[1], encoding="utf-8"))["video"]["contentDuration"])
-PY
-)"
-source_duration="$("$FFPROBE" -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$APP_WEBM" | head -1)"
-pad_needed="$(python3 - "$source_duration" "$content_start" "$content_duration" <<'PY'
-import sys
-source, start, duration = map(float, sys.argv[1:4])
-print(f"{max(0.0, start + duration - source + 0.35):.3f}")
-PY
-)"
 
-log "recortando video de la app (inicio ${content_start}s, duración ${content_duration}s)…"
 app_filter="scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=${BG},fps=30,format=yuv420p"
-if python3 -c "import sys; sys.exit(0 if float('${pad_needed}') > 0.01 else 1)"; then
-  app_filter="${app_filter},tpad=stop_mode=clone:stop_duration=${pad_needed}"
-fi
-"$FFMPEG" -y -hide_banner -loglevel error \
-  -i "$APP_WEBM" -ss "$content_start" -t "$content_duration" \
-  -vf "$app_filter" -an -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -r 30 \
-  "${CARDS_DIR}/app.mp4"
+: > "${OUT_DIR}/video_list.txt"
+printf "file '%s'\n" "${CARDS_DIR}/intro.mp4" >> "${OUT_DIR}/video_list.txt"
+
+python3 - "$PLAN" "$content_start" > "${OUT_DIR}/app_video_plan.tsv" <<'PY'
+import json, sys
+plan = json.load(open(sys.argv[1], encoding="utf-8"))
+base = float(sys.argv[2])
+for seg in plan["segments"]:
+    if seg["kind"] != "app":
+        continue
+    start = base + float(seg["sourceStart"])
+    tail_start = start + float(seg["sourceDuration"]) - float(seg["trimTail"])
+    print(
+        f"{seg['index']:04d}\t{seg['id']}\t{start:.3f}\t"
+        f"{float(seg['trimHead']):.3f}\t{tail_start:.3f}\t"
+        f"{float(seg['trimTail']):.3f}\t{float(seg['skipped']):.3f}\t"
+        f"{float(seg['duration']):.3f}"
+    )
+PY
+
+encode_app_span() {
+  local start="$1" dur="$2" out="$3"
+  "$FFMPEG" -nostdin -y -hide_banner -loglevel error \
+    -ss "$start" -i "$APP_WEBM" -t "$dur" \
+    -vf "${app_filter},tpad=stop_mode=clone:stop_duration=1.0" \
+    -an -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -r 30 \
+    -t "$dur" "$out"
+}
+
+log "recortando video de la app por segmento…"
+while IFS=$'\t' read -r index segment_id start head_dur tail_start tail_dur skipped duration; do
+  [[ -n "${index:-}" ]] || continue
+  out="${CARDS_DIR}/app_${index}-${segment_id}.mp4"
+  if python3 -c "import sys; sys.exit(0 if float('${skipped}') > 0.01 else 1)"; then
+    head_file="${CARDS_DIR}/_head_${index}.mp4"
+    tail_file="${CARDS_DIR}/_tail_${index}.mp4"
+    encode_app_span "$start" "$head_dur" "$head_file"
+    encode_app_span "$tail_start" "$tail_dur" "$tail_file"
+    printf "file '%s'\nfile '%s'\n" "$head_file" "$tail_file" > "${CARDS_DIR}/_join_${index}.txt"
+    "$FFMPEG" -nostdin -y -hide_banner -loglevel error \
+      -f concat -safe 0 -i "${CARDS_DIR}/_join_${index}.txt" \
+      -vf "${app_filter},tpad=stop_mode=clone:stop_duration=1.0" \
+      -an -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -r 30 \
+      -t "$duration" "$out"
+    rm -f "$head_file" "$tail_file" "${CARDS_DIR}/_join_${index}.txt"
+  else
+    encode_app_span "$start" "$duration" "$out"
+  fi
+  printf "file '%s'\n" "$out" >> "${OUT_DIR}/video_list.txt"
+done < "${OUT_DIR}/app_video_plan.tsv"
+
+printf "file '%s'\n" "${CARDS_DIR}/outro.mp4" >> "${OUT_DIR}/video_list.txt"
 
 # ---------------------------------------------------------------------------
 # 3. Pista de audio: un bloque por segmento, rellenado a la duración exacta
@@ -126,7 +162,7 @@ PY
 while IFS=$'\t' read -r index segment_id audio duration; do
   [[ -n "${index:-}" ]] || continue
   padded="${PADDED_DIR}/${index}-${segment_id}.m4a"
-  "$FFMPEG" -y -hide_banner -loglevel error -i "$audio" \
+  "$FFMPEG" -nostdin -y -hide_banner -loglevel error -i "$audio" \
     -af "apad=whole_dur=${duration},atrim=0:${duration},aresample=48000" \
     -ac 2 -ar 48000 -c:a aac -b:a 192k "$padded"
 done < "${OUT_DIR}/audio_plan.tsv"
@@ -136,34 +172,30 @@ while IFS= read -r padded; do
   printf "file '%s'\n" "$padded" >> "${OUT_DIR}/audio_list.txt"
 done < <(find "$PADDED_DIR" -maxdepth 1 -name '*.m4a' -print | sort)
 
-"$FFMPEG" -y -hide_banner -loglevel error \
+"$FFMPEG" -nostdin -y -hide_banner -loglevel error \
   -f concat -safe 0 -i "${OUT_DIR}/audio_list.txt" \
   -c:a aac -b:a 192k -ar 48000 -ac 2 "${OUT_DIR}/audio.m4a"
 
 # ---------------------------------------------------------------------------
 # 4. Concatenar tarjetas + app y mezclar audio/subtítulos
 # ---------------------------------------------------------------------------
-log "concatenando video…"
-cat > "${OUT_DIR}/video_list.txt" <<EOF
-file '${CARDS_DIR}/intro.mp4'
-file '${CARDS_DIR}/app.mp4'
-file '${CARDS_DIR}/outro.mp4'
-EOF
+log "concatenando video e incrustando subtítulos…"
 
-"$FFMPEG" -y -hide_banner -loglevel error \
+# Subtítulos incrustados: se ven igual en VLC, mpv, QuickTime y navegadores.
+# El SRT queda además como archivo externo editable.
+subtitle_filter="subtitles=${SRT}:force_style='FontName=DejaVu Sans,FontSize=11,PrimaryColour=&H00DCEAF1,OutlineColour=&H00000000,BorderStyle=1,Outline=1,Shadow=0,MarginV=10,Alignment=2'"
+"$FFMPEG" -nostdin -y -hide_banner -loglevel error \
   -f concat -safe 0 -i "${OUT_DIR}/video_list.txt" \
-  -an -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -r 30 \
+  -vf "$subtitle_filter" -an -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -r 30 \
   "${OUT_DIR}/video_noaudio.mp4"
 
-log "mezclando audio y subtítulos…"
-"$FFMPEG" -y -hide_banner -loglevel error \
+log "mezclando audio…"
+"$FFMPEG" -nostdin -y -hide_banner -loglevel error \
   -i "${OUT_DIR}/video_noaudio.mp4" \
   -i "${OUT_DIR}/audio.m4a" \
-  -i "$SRT" \
-  -map 0:v:0 -map 1:a:0 -map 2:s:0 \
-  -c:v copy -c:a aac -b:a 192k -ar 48000 -ac 2 -c:s mov_text \
+  -map 0:v:0 -map 1:a:0 \
+  -c:v copy -c:a aac -b:a 192k -ar 48000 -ac 2 \
   -metadata:s:a:0 language=spa -metadata:s:a:0 title="Narración" \
-  -metadata:s:s:0 language=spa -metadata:s:s:0 title="Español" \
   -metadata title="Croupier · Respuestas con las cartas sobre la mesa" \
   -metadata artist="Yorni Felipe Bonilla Paz" \
   -movflags +faststart -shortest "$FINAL"
@@ -191,17 +223,52 @@ probe = json.loads(
 streams = probe.get("streams", [])
 video = next((s for s in streams if s.get("codec_type") == "video"), {})
 audio = next((s for s in streams if s.get("codec_type") == "audio"), {})
-subs = next((s for s in streams if s.get("codec_type") == "subtitle"), {})
 duration = float(probe["format"]["duration"])
 size_mb = float(probe["format"]["size"]) / (1024 * 1024)
+
+def as_seconds(value, default):
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return default
+    return parsed if parsed > 0 else default
+
+
+stream_times = json.loads(
+    subprocess.check_output(
+        [
+            ffprobe, "-v", "error",
+            "-show_entries", "stream=codec_type,duration",
+            "-of", "json", final,
+        ],
+        text=True,
+    )
+).get("streams", [])
+video_time = next(
+    (
+        as_seconds(s.get("duration"), duration)
+        for s in stream_times
+        if s.get("codec_type") == "video"
+    ),
+    duration,
+)
+audio_time = next(
+    (
+        as_seconds(s.get("duration"), duration)
+        for s in stream_times
+        if s.get("codec_type") == "audio"
+    ),
+    duration,
+)
+av_delta = abs(video_time - audio_time)
 
 problems = []
 if video.get("codec_name") != "h264":
     problems.append(f"video={video.get('codec_name')} (se esperaba h264)")
 if audio.get("codec_name") != "aac":
     problems.append(f"audio={audio.get('codec_name')} (se esperaba aac)")
-if not subs:
-    problems.append("falta la pista de subtítulos")
+if av_delta > 0.35:
+    problems.append(f"desfase audio/video de {av_delta:.2f}s (máximo 0.35s)")
 if video.get("width") != 1920 or video.get("height") != 1080:
     problems.append(f"resolución={video.get('width')}x{video.get('height')} (se esperaba 1920x1080)")
 if video.get("r_frame_rate") not in {"30/1", "30000/1001"}:
@@ -229,7 +296,8 @@ print("=" * 78)
 print(f"Duración total : {hms(duration)} ({duration:.1f}s)")
 print(f"Video          : {video.get('codec_name')} {video.get('width')}x{video.get('height')} @ {video.get('r_frame_rate')} fps")
 print(f"Audio          : {audio.get('codec_name')} 48 kHz estéreo")
-print(f"Subtítulos     : {subs.get('codec_name', 'mov_text')} (español) + SRT externo")
+print(f"Sincronía A/V  : Δ {av_delta * 1000:.0f} ms")
+print("Subtítulos     : incrustados (español) + SRT externo editable")
 print(f"Archivo        : {final}")
 print(f"Tamaño         : {size_mb:.1f} MB")
 print("-" * 78)
@@ -246,7 +314,7 @@ PY
 # Fotogramas negros: umbral bajo para no confundir el tema oscuro con un fallo.
 log "comprobando fotogramas negros…"
 black_log="$(mktemp)"
-if ! "$FFMPEG" -hide_banner -i "$FINAL" -vf "blackdetect=d=0.15:pix_th=0.02" -an -f null - 2>"$black_log"; then
+if ! "$FFMPEG" -nostdin -hide_banner -i "$FINAL" -vf "blackdetect=d=0.15:pix_th=0.02" -an -f null - 2>"$black_log"; then
   rm -f "$black_log"
   fail "ffmpeg falló durante la comprobación de fotogramas negros."
 fi

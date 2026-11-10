@@ -166,7 +166,15 @@ def cache_key(segment: Segment, voice: str, rate: str) -> str:
 
 
 async def synthesize(text: str, voice: str, rate: str, destination: Path) -> None:
-    import edge_tts  # import perezoso: solo hace falta si no hay audio_file
+    # Import perezoso: si todos los segmentos usan audio_file no hace falta.
+    try:
+        import edge_tts
+    except ModuleNotFoundError:
+        fail(
+            "Falta edge-tts. Instálalo con:\n"
+            f"  {sys.executable} -m pip install --user edge-tts\n"
+            "O usa `audio_file` en script.yaml para cada segmento."
+        )
 
     last_error: Exception | None = None
     for attempt in range(1, SYNTH_RETRIES + 1):

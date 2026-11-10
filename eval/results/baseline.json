@@ -1,0 +1,349 @@
+{
+  "label": "baseline",
+  "generatedAt": "2026-11-10T19:11:05.009075+00:00",
+  "apiUrl": "http://localhost:8000",
+  "document": {
+    "id": "322605fe-2a13-4709-8051-c0efb5dbdb95",
+    "filename": "Manual de usuario app.pdf",
+    "pageCount": 23,
+    "chunkCount": 39
+  },
+  "golden": "eval/golden.draft.json",
+  "metrics": {
+    "questions": 12,
+    "errors": 0,
+    "hitAtK": 0.8888888888888888,
+    "figureHit": 0.6666666666666666,
+    "refusalCorrect": 0.9166666666666666,
+    "llmCallRate": 1.0,
+    "chunksRetrievedMean": 8.0,
+    "chunksSentMean": 8.0,
+    "chunksSentP95": 8.0,
+    "contextTokensMean": 1210.8333333333333,
+    "contextTokensP95": 1622.3,
+    "promptTokensMean": 3487.75,
+    "promptTokensP95": 4272.35,
+    "completionTokensMean": 61.416666666666664,
+    "latencyP50": 1450.0,
+    "latencyP95": 2559.149999999999
+  },
+  "questions": [
+    {
+      "id": "text-01",
+      "question": "¿En qué lenguaje de programación está desarrollada la aplicación de descarga de pedidos?",
+      "expectedPages": [
+        3
+      ],
+      "needsFigure": false,
+      "shouldRefuse": false,
+      "sufficient": true,
+      "sourcePages": [
+        3
+      ],
+      "imageCount": 0,
+      "hitAtK": true,
+      "figureHit": null,
+      "refusalCorrect": true,
+      "usage": {
+        "chunksRetrieved": 8,
+        "chunksSent": 8,
+        "contextTokens": 1053,
+        "promptTokens": 3187,
+        "completionTokens": 38,
+        "latencyMs": 1263,
+        "llmCalled": true
+      },
+      "error": null
+    },
+    {
+      "id": "text-02",
+      "question": "¿Qué cliente VPN recomienda Eroski para conectarse a su servidor?",
+      "expectedPages": [
+        3
+      ],
+      "needsFigure": false,
+      "shouldRefuse": false,
+      "sufficient": true,
+      "sourcePages": [
+        7,
+        4,
+        5,
+        3
+      ],
+      "imageCount": 2,
+      "hitAtK": true,
+      "figureHit": null,
+      "refusalCorrect": true,
+      "usage": {
+        "chunksRetrieved": 8,
+        "chunksSent": 8,
+        "contextTokens": 1707,
+        "promptTokens": 4213,
+        "completionTokens": 58,
+        "latencyMs": 1365,
+        "llmCalled": true
+      },
+      "error": null
+    },
+    {
+      "id": "text-03",
+      "question": "¿Cada cuántos segundos comprueba la aplicación si hay nuevos archivos en el servidor?",
+      "expectedPages": [
+        4
+      ],
+      "needsFigure": false,
+      "shouldRefuse": false,
+      "sufficient": true,
+      "sourcePages": [
+        4,
+        5
+      ],
+      "imageCount": 2,
+      "hitAtK": true,
+      "figureHit": null,
+      "refusalCorrect": true,
+      "usage": {
+        "chunksRetrieved": 8,
+        "chunksSent": 8,
+        "contextTokens": 1267,
+        "promptTokens": 4160,
+        "completionTokens": 87,
+        "latencyMs": 2034,
+        "llmCalled": true
+      },
+      "error": null
+    },
+    {
+      "id": "text-04",
+      "question": "¿Qué ruta se utiliza para iniciar la sesión de descarga de archivos?",
+      "expectedPages": [
+        4
+      ],
+      "needsFigure": false,
+      "shouldRefuse": false,
+      "sufficient": true,
+      "sourcePages": [
+        4,
+        5
+      ],
+      "imageCount": 2,
+      "hitAtK": true,
+      "figureHit": null,
+      "refusalCorrect": true,
+      "usage": {
+        "chunksRetrieved": 8,
+        "chunksSent": 8,
+        "contextTokens": 1267,
+        "promptTokens": 3297,
+        "completionTokens": 160,
+        "latencyMs": 1420,
+        "llmCalled": true
+      },
+      "error": null
+    },
+    {
+      "id": "text-05",
+      "question": "¿Para qué sirve la carpeta /out del servidor FTP de Eroski?",
+      "expectedPages": [
+        5
+      ],
+      "needsFigure": false,
+      "shouldRefuse": false,
+      "sufficient": true,
+      "sourcePages": [
+        5
+      ],
+      "imageCount": 1,
+      "hitAtK": true,
+      "figureHit": null,
+      "refusalCorrect": true,
+      "usage": {
+        "chunksRetrieved": 8,
+        "chunksSent": 8,
+        "contextTokens": 1387,
+        "promptTokens": 4271,
+        "completionTokens": 105,
+        "latencyMs": 1815,
+        "llmCalled": true
+      },
+      "error": null
+    },
+    {
+      "id": "text-06",
+      "question": "¿Qué lenguaje y framework se utilizan en la aplicación web de gestión de pedidos?",
+      "expectedPages": [
+        8
+      ],
+      "needsFigure": false,
+      "shouldRefuse": false,
+      "sufficient": true,
+      "sourcePages": [
+        8
+      ],
+      "imageCount": 0,
+      "hitAtK": true,
+      "figureHit": null,
+      "refusalCorrect": true,
+      "usage": {
+        "chunksRetrieved": 8,
+        "chunksSent": 8,
+        "contextTokens": 678,
+        "promptTokens": 2424,
+        "completionTokens": 43,
+        "latencyMs": 3201,
+        "llmCalled": true
+      },
+      "error": null
+    },
+    {
+      "id": "fig-01",
+      "question": "¿Qué representa el indicador rojo que aparece a la derecha del nombre de cada tienda en la pantalla principal?",
+      "expectedPages": [
+        9
+      ],
+      "needsFigure": true,
+      "shouldRefuse": false,
+      "sufficient": true,
+      "sourcePages": [
+        9,
+        10
+      ],
+      "imageCount": 2,
+      "hitAtK": true,
+      "figureHit": true,
+      "refusalCorrect": true,
+      "usage": {
+        "chunksRetrieved": 8,
+        "chunksSent": 8,
+        "contextTokens": 1140,
+        "promptTokens": 3253,
+        "completionTokens": 67,
+        "latencyMs": 1542,
+        "llmCalled": true
+      },
+      "error": null
+    },
+    {
+      "id": "fig-02",
+      "question": "¿Qué mensaje de confirmación aparece al cambiar el estado de un pedido?",
+      "expectedPages": [
+        11
+      ],
+      "needsFigure": true,
+      "shouldRefuse": false,
+      "sufficient": true,
+      "sourcePages": [
+        11
+      ],
+      "imageCount": 2,
+      "hitAtK": true,
+      "figureHit": true,
+      "refusalCorrect": true,
+      "usage": {
+        "chunksRetrieved": 8,
+        "chunksSent": 8,
+        "contextTokens": 1434,
+        "promptTokens": 3024,
+        "completionTokens": 67,
+        "latencyMs": 1433,
+        "llmCalled": true
+      },
+      "error": null
+    },
+    {
+      "id": "fig-03",
+      "question": "¿Qué datos se solicitan en la ventana para añadir un nuevo usuario?",
+      "expectedPages": [
+        16,
+        17
+      ],
+      "needsFigure": true,
+      "shouldRefuse": false,
+      "sufficient": false,
+      "sourcePages": [],
+      "imageCount": 0,
+      "hitAtK": false,
+      "figureHit": false,
+      "refusalCorrect": false,
+      "usage": {
+        "chunksRetrieved": 8,
+        "chunksSent": 8,
+        "contextTokens": 905,
+        "promptTokens": 2909,
+        "completionTokens": 28,
+        "latencyMs": 1244,
+        "llmCalled": true
+      },
+      "error": null
+    },
+    {
+      "id": "refuse-01",
+      "question": "¿Cómo se integra la aplicación con SAP u otros ERP de Eroski?",
+      "expectedPages": [],
+      "needsFigure": false,
+      "shouldRefuse": true,
+      "sufficient": false,
+      "sourcePages": [],
+      "imageCount": 0,
+      "hitAtK": null,
+      "figureHit": null,
+      "refusalCorrect": true,
+      "usage": {
+        "chunksRetrieved": 8,
+        "chunksSent": 8,
+        "contextTokens": 1553,
+        "promptTokens": 4274,
+        "completionTokens": 28,
+        "latencyMs": 1467,
+        "llmCalled": true
+      },
+      "error": null
+    },
+    {
+      "id": "refuse-02",
+      "question": "¿Cuál es el precio de la licencia del sistema y qué incluye el soporte?",
+      "expectedPages": [],
+      "needsFigure": false,
+      "shouldRefuse": true,
+      "sufficient": false,
+      "sourcePages": [],
+      "imageCount": 0,
+      "hitAtK": null,
+      "figureHit": null,
+      "refusalCorrect": true,
+      "usage": {
+        "chunksRetrieved": 8,
+        "chunksSent": 8,
+        "contextTokens": 943,
+        "promptTokens": 2868,
+        "completionTokens": 28,
+        "latencyMs": 1206,
+        "llmCalled": true
+      },
+      "error": null
+    },
+    {
+      "id": "refuse-03",
+      "question": "¿La aplicación se puede conectar con Shopify o WooCommerce para sincronizar pedidos?",
+      "expectedPages": [],
+      "needsFigure": false,
+      "shouldRefuse": true,
+      "sufficient": false,
+      "sourcePages": [],
+      "imageCount": 0,
+      "hitAtK": null,
+      "figureHit": null,
+      "refusalCorrect": true,
+      "usage": {
+        "chunksRetrieved": 8,
+        "chunksSent": 8,
+        "contextTokens": 1196,
+        "promptTokens": 3973,
+        "completionTokens": 28,
+        "latencyMs": 1714,
+        "llmCalled": true
+      },
+      "error": null
+    }
+  ]
+}

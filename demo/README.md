@@ -16,7 +16,7 @@ aplicación:
 | --- | --- |
 | Node.js | 22.6+ (recomendado 24). Ejecuta TypeScript sin compilar con `--experimental-strip-types`. |
 | Python | 3.10+ con `edge-tts` y `PyYAML`. |
-| ffmpeg / ffprobe | Cualquier build reciente con `libx264`, `aac`, `drawtext` y `mov_text`. |
+| ffmpeg / ffprobe | Cualquier build reciente con `libx264`, `aac`, `drawtext` y `libass`. |
 | Docker | Stack de Croupier levantado: `api`, `worker`, `redis`, `qdrant` y `web`. |
 | Chromium | Instalado por Playwright (`npx playwright install chromium`). |
 
@@ -87,6 +87,7 @@ segmento y la ruta del MP4.
 | `TTS_RATE` | `+0%` | Velocidad de la voz, por ejemplo `-8%`. |
 | `FFMPEG` / `FFPROBE` | `ffmpeg` / `ffprobe` | Binarios a usar. |
 | `HEADLESS` | `true` | `false` abre Chromium para depurar. |
+| `CHROME_PATH` | autodetectado | Ruta a un Chrome/Chromium del sistema si no usas el de Playwright. |
 | `DEMO_FONT_BOLD` / `DEMO_FONT_REGULAR` | DejaVu Sans | Fuentes de las tarjetas. |
 
 ## Guion
@@ -147,9 +148,13 @@ sintetizarlo.
    - Mueve el ratón con trayectorias suaves y escribe a 45 ms por carácter.
    - Espera por `data-testid` y por atributos de estado (`data-job-status`,
      `data-stage-state`, etc.), nunca por sleeps fijos para sincronizar.
-   - Cada segmento se rellena hasta `audio + 0.6 s` como mínimo.
+   - Cada segmento se rellena hasta `audio + 0.6 s` como mínimo y el montaje
+     recorta, si hace falta, la espera muerta de los segmentos más largos.
    - Reintenta un segmento fallido hasta 3 intentos (2 reintentos), recargando
      la vista y conservando el documento seleccionado.
+   - Instala un guard de `submit` solo durante la demo: el compositor no llama
+     `preventDefault` y, al pulsar el botón, el navegador cancelaría el POST
+     (nginx 499). No se modifica la lógica de la aplicación.
    - Borra antes el documento de demo con el mismo nombre para que la subida
      sea real y reproducible.
    - Guarda `demo/out/timeline.json` con los tiempos reales de cada segmento y
@@ -158,13 +163,17 @@ sintetizarlo.
 3. **`demo/make_plan.py`**
    - Cruza `script.json` y `timeline.json`, valida que cada segmento cumple
      `audio + 0.6 s`, calcula el plan final y genera `demo/out/subtitles.srt`.
+   - Si la ingesta o el LLM tardan de más, recorta la espera muerta de los
+     segmentos largos: conserva la cabecera narrada y una ventana corta con el
+     resultado (documento listo, figura, respuesta, trazas) para que el video
+     no supere 4:30 sin romper el sincronismo.
 
 4. **`demo/build.sh`**
    - Genera con ffmpeg las tarjetas de título y cierre (fondo sólido, Croupier,
      el eslogan y «Yorni Felipe Bonilla Paz»).
    - Recorta el WebM a la ventana útil, rellena cada audio a la duración exacta
-     del segmento, concatena video y audio, y muxea los subtítulos
-     (`mov_text`, español).
+     del segmento, concatena video y audio, e incrusta los subtítulos con
+     libass (español). También deja el SRT externo editable.
    - Verifica H.264, AAC, 1920×1080, 30 fps, subtítulos y duración entre 3:00 y
      4:30; también detecta fotogramas negros.
 
@@ -220,3 +229,5 @@ aplicación.
 - **ffmpeg no encuentra una fuente**: define `DEMO_FONT_BOLD` y
   `DEMO_FONT_REGULAR` con rutas a `.ttf` que existan.
 - **Chromium no está instalado**: `cd demo && npx playwright install chromium`.
+  Si ya tienes Chrome/Chromium en el sistema, puedes usar
+  `CHROME_PATH=/usr/bin/google-chrome make demo`.
