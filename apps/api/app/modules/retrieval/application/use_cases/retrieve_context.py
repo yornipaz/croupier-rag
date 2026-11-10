@@ -15,6 +15,7 @@ from app.modules.retrieval.application.dto.retrieval import (
 )
 from app.modules.retrieval.application.ports.image_catalog import ImageCatalogPort
 from app.modules.retrieval.application.ports.image_url_builder import ImageUrlBuilderPort
+from app.modules.retrieval.domain.lexical import lexical_coverage
 from app.modules.vector_store.application.dto.search import SparseVector
 from app.modules.vector_store.application.ports.sparse_encoder import SparseEncoderPort
 from app.modules.vector_store.application.ports.vector_store import VectorStorePort
@@ -93,6 +94,10 @@ class RetrieveContextUseCase:
         )
         top_score = max((item.relevance_score for item in chunks), default=0.0)
         images = await self._resolve_images(chunks)
+        coverage = lexical_coverage(
+            sparse.indices,
+            [hit.sparse_indices for hit in hits],
+        )
         debug = RetrievalDebug(
             retrieved=tuple(
                 RetrievalDebugHit(
@@ -110,7 +115,8 @@ class RetrieveContextUseCase:
                     dense_cosine=item.dense_cosine,
                 )
                 for item in chunks
-            )
+            ),
+            lexical_coverage=coverage,
         )
         return RetrievalResult(
             chunks=chunks,

@@ -4,9 +4,11 @@ Harness reproducible para comparar versiones del RAG sobre un manual técnico.
 
 ## Dataset
 
-- `golden.draft.json`: borrador principal, con `split` (`calibration` / `test`).
-- `golden.extra.draft.json`: 10 preguntas nuevas propuestas, pendientes de revisión.
-- `golden.json`: dataset definitivo cuando exista; tiene prioridad sobre el borrador.
+- `golden.json`: dataset integrado y versionado (24 preguntas, 8 rechazos, split 50/50).
+- `golden.draft.json`: borrador original de 12 preguntas.
+- `golden.extra.draft.json`: 10 preguntas revisadas e integradas en `golden.json`.
+- `golden.refusal.draft.json`: 2 rechazos adicionales para alcanzar 8 y el mínimo de 24
+  (integrados en `golden.json`, pendientes de revisión final).
 
 Cada caso:
 
@@ -28,7 +30,7 @@ Por defecto el reporte usa solo `split=test`; `--all` usa todos los casos.
 ## Ejecución
 
 ```bash
-make eval-baseline          # eval/results/baseline-v2.json
+make eval-baseline          # eval/results/baseline-v3.json
 make eval LABEL=after       # eval/results/after.json
 make eval-compare LABEL=after
 ```
@@ -40,6 +42,22 @@ Variables: `DEMO_PDF` (admite espacios), `API_URL` (default
 
 Cada corrida envía `temperature=0` por request. `--runs N` repite el dataset y
 el reporte usa la mediana de las métricas; el JSON conserva cada corrida.
+
+## Diagnósticos
+
+```bash
+python eval/analyze_signals.py        # señales del split calibration, sin LLM
+python eval/diagnose_section_paths.py # longitudes y section_path sospechosos
+```
+
+`analyze_signals.py` usa `POST /retrieval/search?debug=true` y agrupa
+contestables/rechazos. Para cada pregunta muestra `denseCosine` top1,
+separación top1-mediana del pool, `lexicalCoverage` y `sparseScore` top1. También
+busca umbrales con cero falsos rechazos en contestables.
+
+`diagnose_section_paths.py` lee los payloads de Qdrant y reporta la distribución
+de longitud de `section_path`, los 10 más largos y los bloques del PDF que
+apuntan a posibles encabezados detectados por error.
 
 ## Métricas
 

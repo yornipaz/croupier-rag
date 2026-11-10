@@ -55,6 +55,7 @@ class ChatDebugHitSchema(CamelModel):
 
 class ChatDebugSchema(CamelModel):
     retrieved: list[ChatDebugHitSchema]
+    lexical_coverage: float
 
     @classmethod
     def from_dto(cls, debug: RetrievalDebug) -> ChatDebugSchema:
@@ -77,7 +78,8 @@ class ChatDebugSchema(CamelModel):
                     sparse_score=item.sparse_score,
                 )
                 for item in debug.retrieved
-            ]
+            ],
+            lexical_coverage=debug.lexical_coverage,
         )
 
 

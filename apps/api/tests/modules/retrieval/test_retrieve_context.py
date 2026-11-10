@@ -127,8 +127,22 @@ async def test_retrieve_context_resolves_and_deduplicates_images() -> None:
         image_ids=("img-1", "img-2"),
     )
     hits = [
-        SearchHit(chunk=second, score=0.03, dense_score=0.7, dense_rank=2, sparse_rank=1),
-        SearchHit(chunk=first, score=0.02, dense_score=0.8, dense_rank=1, sparse_rank=2),
+        SearchHit(
+            chunk=second,
+            score=0.03,
+            dense_score=0.7,
+            dense_rank=2,
+            sparse_rank=1,
+            sparse_indices=(2,),
+        ),
+        SearchHit(
+            chunk=first,
+            score=0.02,
+            dense_score=0.8,
+            dense_rank=1,
+            sparse_rank=2,
+            sparse_indices=(1, 2),
+        ),
     ]
     assets = {
         "img-1": ImageAsset("doc-1", "img-1", 1, (50.0, 130.0, 200.0, 280.0)),
@@ -150,6 +164,7 @@ async def test_retrieve_context_resolves_and_deduplicates_images() -> None:
     assert second_image.source_indexes == (1,)
     assert first_image.url.startswith("/crop/doc-1/1/")
     assert result.debug.retrieved[0].rrf_score == pytest.approx(0.03)
+    assert result.debug.lexical_coverage == pytest.approx(1.0)
 
 
 async def test_top_score_uses_dense_similarity_not_rank_rrf() -> None:
@@ -193,6 +208,4 @@ async def test_filesystem_image_catalog_reads_sidecar(tmp_path: Path) -> None:
 
     assets = await catalog.get_many("doc-1", ["img-1", "missing"])
 
-    assert assets == {
-        "img-1": ImageAsset("doc-1", "img-1", 3, (10.0, 20.0, 30.0, 40.0))
-    }
+    assert assets == {"img-1": ImageAsset("doc-1", "img-1", 3, (10.0, 20.0, 30.0, 40.0))}

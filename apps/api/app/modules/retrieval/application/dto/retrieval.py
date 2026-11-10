@@ -58,12 +58,14 @@ class RetrievalDebugHit:
 @dataclass(frozen=True, slots=True)
 class RetrievalDebug:
     retrieved: tuple[RetrievalDebugHit, ...]
+    lexical_coverage: float = 0.0
 
     def with_sent(self, chunk_ids: Collection[str]) -> RetrievalDebug:
         """Return a copy marking which candidate chunks were sent to the LLM."""
         sent_ids = set(chunk_ids)
         return RetrievalDebug(
-            retrieved=tuple(replace(hit, sent=hit.chunk_id in sent_ids) for hit in self.retrieved)
+            retrieved=tuple(replace(hit, sent=hit.chunk_id in sent_ids) for hit in self.retrieved),
+            lexical_coverage=self.lexical_coverage,
         )
 
 

@@ -34,6 +34,7 @@ class RetrievedChunkSchema(CamelModel):
     sparse_rank: int | None = None
     dense_score: float | None = None
     sparse_score: float | None = None
+    dense_cosine: float | None = None
 
     @classmethod
     def from_dto(cls, item: RetrievedChunk) -> RetrievedChunkSchema:
@@ -54,6 +55,7 @@ class RetrievedChunkSchema(CamelModel):
             sparse_rank=item.sparse_rank,
             dense_score=item.dense_score,
             sparse_score=item.sparse_score,
+            dense_cosine=item.dense_cosine,
         )
 
 
@@ -87,6 +89,9 @@ class RetrievalDebugHitSchema(CamelModel):
     page: int
     section_path: list[str]
     kind: str
+    fused_score: float
+    dense_cosine: float | None = None
+    sent: bool
     rrf_score: float
     relevance_score: float
     dense_rank: int | None = None
@@ -97,6 +102,7 @@ class RetrievalDebugHitSchema(CamelModel):
 
 class RetrievalDebugSchema(CamelModel):
     retrieved: list[RetrievalDebugHitSchema]
+    lexical_coverage: float
 
     @classmethod
     def from_dto(cls, debug: RetrievalDebug) -> RetrievalDebugSchema:
@@ -108,6 +114,9 @@ class RetrievalDebugSchema(CamelModel):
                     page=item.page,
                     section_path=list(item.section_path),
                     kind=item.kind,
+                    fused_score=item.rrf_score,
+                    dense_cosine=item.dense_cosine,
+                    sent=item.sent,
                     rrf_score=item.rrf_score,
                     relevance_score=item.relevance_score,
                     dense_rank=item.dense_rank,
@@ -116,7 +125,8 @@ class RetrievalDebugSchema(CamelModel):
                     sparse_score=item.sparse_score,
                 )
                 for item in debug.retrieved
-            ]
+            ],
+            lexical_coverage=debug.lexical_coverage,
         )
 
 

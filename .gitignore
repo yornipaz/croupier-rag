@@ -32,6 +32,7 @@ demo/out/
 eval/results/*
 !eval/results/baseline.json
 !eval/results/baseline-v2.json
+!eval/results/baseline-v3.json
 
 # Editors / OS
 .idea/

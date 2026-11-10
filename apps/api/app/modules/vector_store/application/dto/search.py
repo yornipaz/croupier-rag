@@ -24,3 +24,4 @@ class SearchHit:
     dense_score: float | None = None
     sparse_score: float | None = None
     dense_cosine: float | None = None
+    sparse_indices: tuple[int, ...] | None = None

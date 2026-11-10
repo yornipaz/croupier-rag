@@ -10,7 +10,7 @@ EVAL_DIR := $(CURDIR)/eval
 API_URL ?= http://localhost:8000
 LABEL ?= latest
 RUNS ?= 3
-EVAL_BASELINE := $(EVAL_DIR)/results/baseline-v2.json
+EVAL_BASELINE := $(EVAL_DIR)/results/baseline-v3.json
 
 .PHONY: help install lock dev worker test lint fmt mypy lint-arch quality up down logs ps build clean \
 	demo demo-dry demo-check demo-tts demo-record demo-build demo-deps demo-clean \
@@ -29,8 +29,8 @@ help:
 	@echo "quality     lint + mypy + lint-arch + test"
 	@echo "up / down   docker compose"
 	@echo "eval        Evalúa el RAG y guarda eval/results/$(LABEL).json"
-	@echo "eval-baseline  Evalúa y guarda eval/results/baseline-v2.json"
-	@echo "eval-compare   Compara $(LABEL) contra baseline-v2"
+	@echo "eval-baseline  Evalúa y guarda eval/results/baseline-v3.json"
+	@echo "eval-compare   Compara $(LABEL) contra baseline-v3"
 	@echo "             Variables: LABEL=latest RUNS=3 API_URL=... DEMO_PDF=..."
 	@echo "demo        Genera demo/out/demo.mp4 (TTS + grabación + montaje)"
 	@echo "demo-dry    Recorre el flujo sin grabar (valida selectores)"
@@ -75,7 +75,7 @@ eval:
 
 eval-baseline:
 	@cd $(API_DIR) && DEMO_PDF="$(DEMO_PDF)" API_URL="$(API_URL)" \
-		uv run python "$(EVAL_DIR)/run_eval.py" --label baseline-v2 --runs "$(RUNS)" --ensure-doc
+		uv run python "$(EVAL_DIR)/run_eval.py" --label baseline-v3 --runs "$(RUNS)" --ensure-doc
 
 eval-compare:
 	@cd $(API_DIR) && uv run python "$(EVAL_DIR)/run_eval.py" \

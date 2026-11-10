@@ -1,0 +1,20 @@
+[
+  {
+    "id": "refuse-07",
+    "question": "¿La base de datos puede ser PostgreSQL en lugar de MongoDB?",
+    "expected_pages": [],
+    "needs_figure": false,
+    "should_refuse": true,
+    "split": "calibration",
+    "notes": "Cercana al tema, pero el PDF solo menciona MongoDB y no PostgreSQL ni otras bases de datos."
+  },
+  {
+    "id": "refuse-08",
+    "question": "¿Cómo se configura una impresora en Windows para imprimir los pedidos?",
+    "expected_pages": [],
+    "needs_figure": false,
+    "should_refuse": true,
+    "split": "test",
+    "notes": "Claramente fuera de tema: el manual no trata impresoras ni Windows."
+  }
+]

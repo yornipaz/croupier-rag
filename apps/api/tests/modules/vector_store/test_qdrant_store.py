@@ -189,14 +189,20 @@ async def test_hybrid_search_uses_prefetch_rrf_and_returns_component_ranks() -> 
             version=0,
             score=0.032,
             payload=_payload(first),
-            vector={"dense": [0.1, 0.2, 0.3]},
+            vector={
+                "dense": [0.1, 0.2, 0.3],
+                "sparse": qm.SparseVector(indices=[1, 2], values=[1.0, 1.0]),
+            },
         ),
         qm.ScoredPoint(
             id=second.id,
             version=0,
             score=0.016,
             payload=_payload(second),
-            vector={"dense": [1.0, 0.0, 0.0]},
+            vector={
+                "dense": [1.0, 0.0, 0.0],
+                "sparse": qm.SparseVector(indices=[2], values=[1.0]),
+            },
         ),
     ]
     dense = [
@@ -227,6 +233,8 @@ async def test_hybrid_search_uses_prefetch_rrf_and_returns_component_ranks() -> 
     assert hits[0].sparse_score == 6.4
     assert hits[0].dense_cosine == pytest.approx(1.0)
     assert hits[1].dense_cosine == pytest.approx(0.1 / (0.1**2 + 0.2**2 + 0.3**2) ** 0.5)
+    assert hits[0].sparse_indices == (1, 2)
+    assert hits[1].sparse_indices == (2,)
 
     assert client.requests is not None
     fused_request, dense_request, sparse_request = client.requests
@@ -236,7 +244,7 @@ async def test_hybrid_search_uses_prefetch_rrf_and_returns_component_ranks() -> 
     assert len(fused_request.prefetch) == 2
     assert fused_request.limit == 2
     assert fused_request.with_payload is True
-    assert fused_request.with_vector == ["dense"]
+    assert fused_request.with_vector == ["dense", "sparse"]
 
     assert fused_request.filter is not None
     condition = fused_request.filter.must[0]

@@ -82,6 +82,18 @@ def _dense_vector(point: qm.ScoredPoint) -> list[float] | None:
         return None
 
 
+def _sparse_indices(point: qm.ScoredPoint) -> tuple[int, ...] | None:
+    """Extract sparse term ids from a scored point when requested."""
+    raw: Any = point.vector
+    if isinstance(raw, dict):
+        raw = raw.get(SPARSE_VECTOR_NAME)
+    if isinstance(raw, qm.SparseVector):
+        return tuple(int(index) for index in raw.indices)
+    if isinstance(raw, dict) and isinstance(raw.get("indices"), (list, tuple)):
+        return tuple(int(index) for index in raw["indices"])
+    return None
+
+
 class QdrantVectorStore:
     """Qdrant adapter with named dense/sparse vectors and server-side RRF fusion."""
 
@@ -226,7 +238,7 @@ class QdrantVectorStore:
                 query=qm.FusionQuery(fusion=qm.Fusion.RRF),
                 limit=top_k,
                 with_payload=True,
-                with_vector=[DENSE_VECTOR_NAME],
+                with_vector=[DENSE_VECTOR_NAME, SPARSE_VECTOR_NAME],
                 filter=query_filter,
             ),
             qm.QueryRequest(
@@ -285,6 +297,7 @@ class QdrantVectorStore:
                     dense_cosine=(
                         cosine_similarity(dense, stored_dense) if stored_dense is not None else None
                     ),
+                    sparse_indices=_sparse_indices(point),
                 )
             )
         return hits

@@ -46,7 +46,10 @@ Reglas obligatorias:
   usage{chunksRetrieved, chunksSent, systemTokens, historyTokens, contextTokens, questionTokens,
   promptTemplateTokens, promptEstimatedTokens, promptTokens, completionTokens, promptSource,
   completionSource, breakdownSource, llmCalls, latencyMs, llmCalled},
-  debug?{retrieved[]{chunkId,page,fusedScore,denseCosine,denseRank,sparseRank,sent,...},...}}.
+  debug?{retrieved[]{chunkId,page,fusedScore,denseCosine,denseRank,sparseRank,sparseScore,sent,...},
+  lexicalCoverage},...}}.
+  `lexicalCoverage` es la fracción de términos BM25 de la pregunta presentes en los top-N
+  chunks (mismos ids del encoder sparse). `sparseScore` es la puntuación BM25 por candidato.
   Las cuatro cifras del prompt y `promptEstimatedTokens` se estiman con
   `app/shared/tokens.count_tokens`; `promptSource`/`completionSource` indican `provider` o `estimated`.
   En rechazo sin llamar al LLM: `llmCalled=false`, `completionTokens=0` y `chunksSent=0`.
