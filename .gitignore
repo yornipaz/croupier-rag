@@ -28,9 +28,10 @@ data/
 # Demo artifacts
 demo/out/
 
-# Eval artifacts (the baseline is the versioned reference)
+# Eval artifacts (versioned baselines are the reference)
 eval/results/*
 !eval/results/baseline.json
+!eval/results/baseline-v2.json
 
 # Editors / OS
 .idea/

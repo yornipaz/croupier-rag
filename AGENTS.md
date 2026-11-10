@@ -43,11 +43,14 @@ Reglas obligatorias:
   El estado vive en Redis; el progreso se publica por Redis pub/sub y la API lo retransmite por SSE (el worker es otro proceso).
 - POST /documents → 202 {jobId, documentId}. GET /jobs/{id}. GET /jobs/{id}/events (SSE).
 - POST /chat/ask → {answer, sufficient, sources[{file,page,bbox,sectionPath}], images[{url,page,bbox}],
-  usage{chunksRetrieved, chunksSent, contextTokens, promptTokens, completionTokens, latencyMs, llmCalled},
-  debug?{retrieved[],denseRank,sparseRank,rrfScore}}.
-  `usage` usa los metadatos de tokens del proveedor cuando existen; si faltan, estima con
-  `app/shared/tokens.count_tokens` (palabras + signos). En rechazo sin llamar al LLM:
-  `llmCalled=false`, `completionTokens=0` y `chunksSent=0`.
+  usage{chunksRetrieved, chunksSent, systemTokens, historyTokens, contextTokens, questionTokens,
+  promptTemplateTokens, promptEstimatedTokens, promptTokens, completionTokens, promptSource,
+  completionSource, breakdownSource, llmCalls, latencyMs, llmCalled},
+  debug?{retrieved[]{chunkId,page,fusedScore,denseCosine,denseRank,sparseRank,sent,...},...}}.
+  Las cuatro cifras del prompt y `promptEstimatedTokens` se estiman con
+  `app/shared/tokens.count_tokens`; `promptSource`/`completionSource` indican `provider` o `estimated`.
+  En rechazo sin llamar al LLM: `llmCalled=false`, `completionTokens=0` y `chunksSent=0`.
+  `temperature` es opcional por request (la evaluación envía 0; sin él se mantiene el default de producción).
 - GET /documents/{id}/pages/{n}/crop?bbox=x0,y0,x1,y1&highlight=true → PNG (PyMuPDF get_pixmap con clip + rect resaltado).
 
 ## RAG: reglas

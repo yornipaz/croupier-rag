@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import Field
 
 from app.modules.chat.application.dto.chat import ChatAnswer, ChatRole, ChatTurn
@@ -18,6 +20,7 @@ class ChatAskRequest(CamelModel):
     history: list[ChatTurnSchema] = Field(default_factory=list)
     doc_id: str | None = None
     conversation_id: str | None = None
+    temperature: float | None = Field(default=None, ge=0.0, le=2.0)
 
 
 class SourceSchema(CamelModel):
@@ -39,6 +42,9 @@ class ChatDebugHitSchema(CamelModel):
     page: int
     section_path: list[str]
     kind: str
+    fused_score: float
+    dense_cosine: float | None = None
+    sent: bool
     rrf_score: float
     relevance_score: float
     dense_rank: int | None = None
@@ -60,6 +66,9 @@ class ChatDebugSchema(CamelModel):
                     page=item.page,
                     section_path=list(item.section_path),
                     kind=item.kind,
+                    fused_score=item.rrf_score,
+                    dense_cosine=item.dense_cosine,
+                    sent=item.sent,
                     rrf_score=item.rrf_score,
                     relevance_score=item.relevance_score,
                     dense_rank=item.dense_rank,
@@ -75,9 +84,18 @@ class ChatDebugSchema(CamelModel):
 class ChatUsageSchema(CamelModel):
     chunks_retrieved: int
     chunks_sent: int
+    system_tokens: int
+    history_tokens: int
     context_tokens: int
+    question_tokens: int
+    prompt_template_tokens: int
+    prompt_estimated_tokens: int
     prompt_tokens: int
     completion_tokens: int
+    prompt_source: Literal["provider", "estimated"]
+    completion_source: Literal["provider", "estimated"]
+    breakdown_source: Literal["estimated"]
+    llm_calls: int
     latency_ms: int
     llm_called: bool
 
@@ -116,9 +134,18 @@ class ChatResponse(CamelModel):
             usage=ChatUsageSchema(
                 chunks_retrieved=answer.usage.chunks_retrieved,
                 chunks_sent=answer.usage.chunks_sent,
+                system_tokens=answer.usage.system_tokens,
+                history_tokens=answer.usage.history_tokens,
                 context_tokens=answer.usage.context_tokens,
+                question_tokens=answer.usage.question_tokens,
+                prompt_template_tokens=answer.usage.prompt_template_tokens,
+                prompt_estimated_tokens=answer.usage.prompt_estimated_tokens,
                 prompt_tokens=answer.usage.prompt_tokens,
                 completion_tokens=answer.usage.completion_tokens,
+                prompt_source=answer.usage.prompt_source,
+                completion_source=answer.usage.completion_source,
+                breakdown_source=answer.usage.breakdown_source,
+                llm_calls=answer.usage.llm_calls,
                 latency_ms=answer.usage.latency_ms,
                 llm_called=answer.usage.llm_called,
             ),

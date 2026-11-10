@@ -13,4 +13,6 @@ class LLMPort(Protocol):
         prompt: str,
         system: str | None = None,
         response_schema: ResponseSchema | None = None,
+        *,
+        temperature: float | None = None,
     ) -> LLMResult: ...

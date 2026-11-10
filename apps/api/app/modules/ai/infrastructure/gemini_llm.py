@@ -37,10 +37,14 @@ class GeminiLLM:
         prompt: str,
         system: str | None = None,
         response_schema: ResponseSchema | None = None,
+        *,
+        temperature: float | None = None,
     ) -> LLMResult:
         config_kwargs: dict[str, Any] = {}
         if system:
             config_kwargs["system_instruction"] = system
+        if temperature is not None:
+            config_kwargs["temperature"] = temperature
         if response_schema is not None:
             config_kwargs["response_mime_type"] = "application/json"
             config_kwargs["response_schema"] = response_schema

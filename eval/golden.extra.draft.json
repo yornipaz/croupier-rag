@@ -1,0 +1,92 @@
+[
+  {
+    "id": "text-07",
+    "question": "¿Qué gestor de paquetes se necesita además de Node.js para ejecutar la aplicación?",
+    "expected_pages": [3],
+    "needs_figure": false,
+    "should_refuse": false,
+    "split": "calibration",
+    "notes": "La página 3 indica que se necesita Node.js y el administrador de paquetes NPM."
+  },
+  {
+    "id": "text-08",
+    "question": "¿Qué hace la aplicación con los archivos de la carpeta /in después de procesarlos?",
+    "expected_pages": [5],
+    "needs_figure": false,
+    "should_refuse": false,
+    "split": "test",
+    "notes": "La página 5 explica que los descarga, procesa y luego los elimina de /in."
+  },
+  {
+    "id": "text-09",
+    "question": "¿Qué versión de PHP se utilizó para instalar la aplicación web?",
+    "expected_pages": [8],
+    "needs_figure": false,
+    "should_refuse": false,
+    "split": "calibration",
+    "notes": "La página 8 indica que se instaló con la versión 8 de PHP."
+  },
+  {
+    "id": "text-10",
+    "question": "¿Con qué nombre se descarga el fichero exportado del cuadro de facturación?",
+    "expected_pages": [15],
+    "needs_figure": false,
+    "should_refuse": false,
+    "split": "test",
+    "notes": "La página 15 indica que se descarga un fichero con el nombre cuadro.xlsx."
+  },
+  {
+    "id": "fig-04",
+    "question": "¿En qué orden aparecen los pedidos pendientes y los entregados al desplegar una tienda en la aplicación web?",
+    "expected_pages": [10],
+    "needs_figure": true,
+    "should_refuse": false,
+    "split": "calibration",
+    "notes": "La captura de la página 10 muestra pendientes arriba y entregados abajo."
+  },
+  {
+    "id": "fig-05",
+    "question": "¿Qué elementos muestra la pantalla de inicio de sesión de la aplicación móvil?",
+    "expected_pages": [19],
+    "needs_figure": true,
+    "should_refuse": false,
+    "split": "test",
+    "notes": "La captura de la página 19 muestra las cajas de usuario y contraseña y el botón Login."
+  },
+  {
+    "id": "fig-06",
+    "question": "¿Qué datos del pedido se pueden ver al desplazar la lista de pedidos hacia la derecha en la app móvil?",
+    "expected_pages": [21],
+    "needs_figure": true,
+    "should_refuse": false,
+    "split": "calibration",
+    "notes": "La página 21 describe estado, datos y teléfono del cliente e importe, visibles en la captura."
+  },
+  {
+    "id": "refuse-04",
+    "question": "¿Existe una versión para iOS disponible en la App Store?",
+    "expected_pages": [],
+    "needs_figure": false,
+    "should_refuse": true,
+    "split": "test",
+    "notes": "El PDF no menciona iOS ni la App Store; solo describe una aplicación Android."
+  },
+  {
+    "id": "refuse-05",
+    "question": "¿Dónde se guardan las imágenes de los albaranes firmados?",
+    "expected_pages": [],
+    "needs_figure": false,
+    "should_refuse": true,
+    "split": "calibration",
+    "notes": "El PDF no menciona albaranes firmados ni el almacenamiento de sus imágenes."
+  },
+  {
+    "id": "refuse-06",
+    "question": "¿Cuántos usuarios concurrentes soporta el sistema y qué SLA ofrece?",
+    "expected_pages": [],
+    "needs_figure": false,
+    "should_refuse": true,
+    "split": "test",
+    "notes": "El PDF no contiene cifras de concurrencia ni acuerdos de nivel de servicio."
+  }
+]

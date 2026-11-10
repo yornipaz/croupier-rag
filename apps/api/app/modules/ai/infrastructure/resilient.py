@@ -48,8 +48,17 @@ class ResilientLLM:
         prompt: str,
         system: str | None = None,
         response_schema: ResponseSchema | None = None,
+        *,
+        temperature: float | None = None,
     ) -> LLMResult:
-        return await self._generate(prompt, system, response_schema)
+        if temperature is None:
+            return await self._generate(prompt, system, response_schema)
+        return await self._generate(
+            prompt,
+            system,
+            response_schema,
+            temperature=temperature,
+        )
 
 
 class ResilientEmbedding:

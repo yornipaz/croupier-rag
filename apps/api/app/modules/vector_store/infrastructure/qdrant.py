@@ -15,6 +15,7 @@ from app.modules.vector_store.infrastructure.errors import map_qdrant_exception
 from app.shared.chunks import Chunk, ChunkKind
 from app.shared.errors import UpstreamError
 from app.shared.logging import get_logger
+from app.shared.vectors import cosine_similarity
 
 logger = get_logger(__name__)
 
@@ -66,6 +67,19 @@ def _rank_map(points: Sequence[qm.ScoredPoint]) -> dict[str, int]:
 
 def _score_map(points: Sequence[qm.ScoredPoint]) -> dict[str, float]:
     return {str(point.id): float(point.score) for point in points}
+
+
+def _dense_vector(point: qm.ScoredPoint) -> list[float] | None:
+    """Extract the named dense vector from a scored point when requested."""
+    raw: Any = point.vector
+    if isinstance(raw, dict):
+        raw = raw.get(DENSE_VECTOR_NAME)
+    if not isinstance(raw, (list, tuple)) or not raw:
+        return None
+    try:
+        return [float(value) for value in raw]
+    except (TypeError, ValueError):
+        return None
 
 
 class QdrantVectorStore:
@@ -187,9 +201,7 @@ class QdrantVectorStore:
             return []
         prefetch_limit = max(self._prefetch_limit, top_k)
         query_filter = (
-            qm.Filter(
-                must=[qm.FieldCondition(key="doc_id", match=qm.MatchValue(value=doc_id))]
-            )
+            qm.Filter(must=[qm.FieldCondition(key="doc_id", match=qm.MatchValue(value=doc_id))])
             if doc_id
             else None
         )
@@ -214,6 +226,7 @@ class QdrantVectorStore:
                 query=qm.FusionQuery(fusion=qm.Fusion.RRF),
                 limit=top_k,
                 with_payload=True,
+                with_vector=[DENSE_VECTOR_NAME],
                 filter=query_filter,
             ),
             qm.QueryRequest(
@@ -260,6 +273,7 @@ class QdrantVectorStore:
             except (KeyError, TypeError, ValueError) as exc:
                 raise UpstreamError("Qdrant returned an invalid chunk payload") from exc
             point_id = str(point.id)
+            stored_dense = _dense_vector(point)
             hits.append(
                 SearchHit(
                     chunk=chunk,
@@ -268,6 +282,9 @@ class QdrantVectorStore:
                     sparse_rank=sparse_ranks.get(point_id),
                     dense_score=dense_scores.get(point_id),
                     sparse_score=sparse_scores.get(point_id),
+                    dense_cosine=(
+                        cosine_similarity(dense, stored_dense) if stored_dense is not None else None
+                    ),
                 )
             )
         return hits

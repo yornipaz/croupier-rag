@@ -87,6 +87,7 @@ class RetrieveContextUseCase:
                 sparse_rank=hit.sparse_rank,
                 dense_score=hit.dense_score,
                 sparse_score=hit.sparse_score,
+                dense_cosine=hit.dense_cosine,
             )
             for hit in hits
         )
@@ -106,6 +107,7 @@ class RetrieveContextUseCase:
                     sparse_rank=item.sparse_rank,
                     dense_score=item.dense_score,
                     sparse_score=item.sparse_score,
+                    dense_cosine=item.dense_cosine,
                 )
                 for item in chunks
             )
@@ -149,9 +151,7 @@ class RetrieveContextUseCase:
             page = asset.page if asset is not None else refs[0][1].chunk.page
             bbox = asset.bbox if asset is not None else refs[0][1].chunk.bbox
             best_score = max(reference[1].relevance_score for reference in refs)
-            distance = min(
-                _bbox_distance(reference[1].chunk.bbox, bbox) for reference in refs
-            )
+            distance = min(_bbox_distance(reference[1].chunk.bbox, bbox) for reference in refs)
             images.append(
                 RetrievedImage(
                     document_id=document_id,

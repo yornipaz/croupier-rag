@@ -64,6 +64,7 @@ class AskQuestionUseCase:
         doc_id: str | None = None,
         *,
         conversation_id: str | None = None,
+        temperature: float | None = None,
     ) -> ChatAnswer:
         started = time.perf_counter()
         usage = UsageTracker()
@@ -89,9 +90,17 @@ class AskQuestionUseCase:
             if stored:
                 effective_history = stored
 
-        standalone_query = await self._rewrite(normalized_query, effective_history, usage)
+        standalone_query = await self._rewrite(
+            normalized_query,
+            effective_history,
+            usage,
+            temperature=temperature,
+        )
         retrieval = await self._retrieval.execute(standalone_query, doc_id=doc_id)
-        usage.observe_chunks(retrieval.chunks)
+        usage.observe_retrieval(
+            retrieval.chunks,
+            context=self._prompt_builder.format_context(retrieval.chunks),
+        )
 
         if retrieval.top_score < self._min_score:
             return await self._finish(
@@ -107,16 +116,22 @@ class AskQuestionUseCase:
             )
 
         llm = self._require_llm()
-        answer_prompt = self._prompt_builder.build_answer_prompt(
+        prompt_parts = self._prompt_builder.build_answer_parts(
             normalized_query,
             effective_history,
             retrieval.chunks,
         )
+        answer_prompt = prompt_parts.text
         system = self._prompt_builder.system_prompt()
+        usage.record_prompt_breakdown(system=system, parts=prompt_parts)
         usage.mark_context_sent(retrieval.chunks)
         first_text = ""
         try:
-            first = await llm.generate(answer_prompt, system=system)
+            first = await llm.generate(
+                answer_prompt,
+                system=system,
+                temperature=temperature,
+            )
             usage.record_call(answer_prompt, system, first)
             first_text = first.text
             payload = parse_llm_answer(first.text)
@@ -126,7 +141,11 @@ class AskQuestionUseCase:
                 first_text,
             )
             try:
-                repaired = await llm.generate(repair_prompt, system=system)
+                repaired = await llm.generate(
+                    repair_prompt,
+                    system=system,
+                    temperature=temperature,
+                )
                 usage.record_call(repair_prompt, system, repaired)
                 payload = parse_llm_answer(repaired.text)
             except (InvalidLLMResponse, AppError):
@@ -182,13 +201,19 @@ class AskQuestionUseCase:
         query: str,
         history: Sequence[ChatTurn],
         usage: UsageTracker,
+        *,
+        temperature: float | None = None,
     ) -> str:
         if not history or self._llm is None:
             return query
         prompt = self._prompt_builder.build_rewrite_prompt(query, history)
         system = self._prompt_builder.rewrite_system()
         try:
-            result = await self._llm.generate(prompt, system=system)
+            result = await self._llm.generate(
+                prompt,
+                system=system,
+                temperature=temperature,
+            )
             usage.record_call(prompt, system, result)
         except AppError:
             logger.warning("chat.rewrite_failed")
@@ -239,7 +264,7 @@ class AskQuestionUseCase:
             sources=sources,
             images=images,
             usage=usage.to_dto(latency_ms=latency_ms),
-            debug=retrieval.debug,
+            debug=retrieval.debug.with_sent(usage.sent_chunk_ids),
         )
         if conversation_id:
             try:

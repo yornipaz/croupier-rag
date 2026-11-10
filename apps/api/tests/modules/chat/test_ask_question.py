@@ -42,17 +42,21 @@ class FakeLLM:
         self.calls = 0
         self.prompts: list[str] = []
         self.systems: list[str | None] = []
+        self.temperatures: list[float | None] = []
 
     async def generate(
         self,
         prompt: str,
         system: str | None = None,
         response_schema: ResponseSchema | None = None,
+        *,
+        temperature: float | None = None,
     ) -> LLMResult:
         _ = response_schema
         self.calls += 1
         self.prompts.append(prompt)
         self.systems.append(system)
+        self.temperatures.append(temperature)
         if not self.responses:
             raise AssertionError("LLM should not have been called")
         usage = self.usages.pop(0) if self.usages else None
@@ -151,6 +155,8 @@ async def test_no_information_returns_fallback_without_calling_llm() -> None:
     assert answer.usage.chunks_retrieved == 2
     assert answer.usage.context_tokens > 0
     assert answer.usage.latency_ms >= 0
+    assert answer.debug is not None
+    assert all(not hit.sent for hit in answer.debug.retrieved)
 
 
 async def test_valid_answer_filters_sources_and_images_to_cited_sources() -> None:
@@ -191,6 +197,57 @@ async def test_valid_answer_records_estimated_usage_without_provider_metadata() 
     assert answer.usage.prompt_tokens > 0
     assert answer.usage.completion_tokens > 0
     assert answer.usage.latency_ms >= 0
+    assert answer.usage.prompt_source == "estimated"
+    assert answer.usage.completion_source == "estimated"
+    assert answer.usage.system_tokens > 0
+    assert answer.usage.history_tokens > 0
+    assert answer.usage.question_tokens > 0
+    assert answer.usage.prompt_estimated_tokens >= (
+        answer.usage.system_tokens
+        + answer.usage.history_tokens
+        + answer.usage.context_tokens
+        + answer.usage.question_tokens
+    )
+    assert answer.debug is not None
+    assert all(hit.sent for hit in answer.debug.retrieved)
+    assert {hit.page for hit in answer.debug.retrieved} == {1, 2}
+
+
+async def test_token_breakdown_partitions_the_answer_prompt() -> None:
+    use_case, _, _, _ = _use_case(
+        responses=[
+            '{"answer":"El modelo A-200 usa 380 V [S2].","used_sources":["S2"],"sufficient":true}'
+        ],
+        usages=[{"input_tokens": 500, "output_tokens": 7}],
+    )
+
+    answer = await use_case.execute("¿Qué voltaje tiene el A-200?", [])
+
+    usage = answer.usage
+    assert usage.prompt_source == "provider"
+    assert usage.completion_source == "provider"
+    assert usage.prompt_tokens == 500
+    assert usage.prompt_estimated_tokens == (
+        usage.system_tokens
+        + usage.history_tokens
+        + usage.context_tokens
+        + usage.question_tokens
+        + usage.prompt_template_tokens
+    )
+
+
+async def test_temperature_is_forwarded_to_every_llm_call() -> None:
+    history = [ChatTurn(role="user", content="Háblame del A-100.")]
+    use_case, _, llm, _ = _use_case(
+        responses=[
+            "¿Qué voltaje tiene el modelo A-200?",
+            '{"answer":"El A-200 usa 380 V [S2].","used_sources":["S2"],"sufficient":true}',
+        ]
+    )
+
+    await use_case.execute("¿Y el A-200?", history, temperature=0.0)
+
+    assert llm.temperatures == [0.0, 0.0]
 
 
 async def test_provider_usage_metadata_takes_precedence_over_estimates() -> None:

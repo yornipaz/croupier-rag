@@ -46,12 +46,14 @@ class OpenAILLM:
         prompt: str,
         system: str | None = None,
         response_schema: ResponseSchema | None = None,
+        *,
+        temperature: float | None = None,
     ) -> LLMResult:
         effective_prompt = prompt
         effective_system = system
         body: dict[str, Any] = {
             "model": self._model,
-            "temperature": 0,
+            "temperature": 0 if temperature is None else temperature,
         }
 
         if response_schema is not None:

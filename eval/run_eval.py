@@ -4,13 +4,13 @@
 Only ``httpx`` and the standard library are required. The script:
 
 1. Optionally uploads ``DEMO_PDF`` and waits for its ingestion job.
-2. Asks every question in the golden dataset through ``POST /chat/ask``.
+2. Asks the selected split through ``POST /chat/ask?debug=true`` several times.
 3. Computes retrieval, figure, refusal, token and latency metrics.
 4. Writes ``eval/results/<label>.json`` and prints markdown tables.
 
 Examples:
-    python eval/run_eval.py --label baseline --ensure-doc
-    python eval/run_eval.py --compare eval/results/baseline.json
+    python eval/run_eval.py --label baseline-v2 --ensure-doc
+    python eval/run_eval.py --compare eval/results/baseline-v2.json
 """
 
 from __future__ import annotations
@@ -34,8 +34,10 @@ if str(REPO_ROOT) not in sys.path:
 
 from eval.metrics import (  # noqa: E402
     RATE_METRICS,
+    aggregate_question_runs,
     compare_summaries,
     evaluate_question,
+    median_metrics,
     summarize,
 )
 
@@ -43,18 +45,30 @@ RESULTS_DIR = Path(__file__).resolve().parent / "results"
 DEFAULT_PDF = Path.home() / "Downloads" / "Manual de usuario app.pdf"
 
 METRIC_LABELS = {
-    "hitAtK": "hit@k (preguntas con respuesta)",
+    "answerHit": "answer_hit (fuentes citadas)",
+    "retrievalHit": "retrieval_hit (recuperado enviado)",
     "figureHit": "figure_hit (preguntas con figura)",
     "refusalCorrect": "refusal_correct (todas)",
     "llmCallRate": "tasa de llamadas al LLM",
     "chunksRetrievedMean": "chunksRetrieved medio",
     "chunksSentMean": "chunksSent medio",
     "chunksSentP95": "chunksSent p95",
+    "systemTokensMean": "systemTokens medio",
+    "historyTokensMean": "historyTokens medio",
     "contextTokensMean": "contextTokens medio",
     "contextTokensP95": "contextTokens p95",
+    "questionTokensMean": "questionTokens medio",
+    "promptTemplateTokensMean": "promptTemplateTokens medio",
+    "promptEstimatedMean": "promptEstimatedTokens medio",
     "promptTokensMean": "promptTokens medio",
     "promptTokensP95": "promptTokens p95",
+    "promptGapMean": "gap prompt real - estimado",
     "completionTokensMean": "completionTokens medio",
+    "denseCosineAnswerableP50": "denseCosine contestables p50",
+    "denseCosineAnswerableP95": "denseCosine contestables p95",
+    "denseCosineRefusalP50": "denseCosine rechazo p50",
+    "denseCosineRefusalP95": "denseCosine rechazo p95",
+    "denseCosineSeparationP50": "separación denseCosine p50",
     "latencyP50": "latencia p50",
     "latencyP95": "latencia p95",
 }
@@ -88,6 +102,23 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         type=Path,
         default=None,
         help="Compara el resultado de --label contra este JSON (no ejecuta preguntas)",
+    )
+    parser.add_argument(
+        "--runs",
+        type=int,
+        default=3,
+        help="Número de repeticiones; el reporte usa la mediana (default: 3)",
+    )
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=0.0,
+        help="Temperatura enviada en la evaluación (default: 0)",
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Usa todos los splits; por defecto solo el split test",
     )
     parser.add_argument(
         "--job-timeout",
@@ -241,11 +272,13 @@ def _ask(
     base: str,
     question: str,
     doc_id: str | None,
+    *,
+    temperature: float,
 ) -> dict[str, Any]:
-    payload: dict[str, Any] = {"query": question}
+    payload: dict[str, Any] = {"query": question, "temperature": temperature}
     if doc_id:
         payload["docId"] = doc_id
-    response = client.post(f"{base}/chat/ask", json=payload)
+    response = client.post(f"{base}/chat/ask?debug=true", json=payload)
     response.raise_for_status()
     body: dict[str, Any] = response.json()
     return body
@@ -256,6 +289,8 @@ def _format_metric(metric: str, value: float) -> str:
         return f"{value * 100:.1f}%"
     if metric in {"latencyP50", "latencyP95"}:
         return f"{value:.0f} ms"
+    if metric.startswith("denseCosine"):
+        return f"{value:.3f}"
     return f"{value:.1f}"
 
 
@@ -273,23 +308,43 @@ def _render_summary(metrics: Mapping[str, float]) -> str:
     return "\n".join(lines)
 
 
+def _render_runs(runs: Sequence[Mapping[str, Any]]) -> str:
+    lines = [
+        "| run | answer_hit | retrieval_hit | refusal | context tok | prompt tok | p50 ms |",
+        "| ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for run in runs:
+        metrics = run["metrics"]
+        lines.append(
+            f"| {run['run']} | {_format_metric('answerHit', metrics['answerHit'])} | "
+            f"{_format_metric('retrievalHit', metrics['retrievalHit'])} | "
+            f"{_format_metric('refusalCorrect', metrics['refusalCorrect'])} | "
+            f"{metrics['contextTokensMean']:.1f} | {metrics['promptTokensMean']:.1f} | "
+            f"{metrics['latencyP50']:.0f} |"
+        )
+    return "\n".join(lines)
+
+
 def _render_questions(results: Sequence[Mapping[str, Any]]) -> str:
     lines = [
-        "| id | esperadas | devueltas | hit@k | figura | rechazo | ctx | prompt | ms | LLM |",
-        "| --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | --- |",
+        "| id | split | esp | cit | env | ans | ret | fig | rech | ctx | gap | ms | LLM |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | --- |",
     ]
     for row in results:
         expected = ",".join(str(page) for page in row["expectedPages"]) or "—"
-        returned = ",".join(str(page) for page in row["sourcePages"]) or "—"
-        hit = "—" if row["hitAtK"] is None else ("sí" if row["hitAtK"] else "no")
+        cited = ",".join(str(page) for page in row["sourcePages"]) or "—"
+        sent = ",".join(str(page) for page in row["sentPages"]) or "—"
+        answer = "—" if row["answerHit"] is None else ("sí" if row["answerHit"] else "no")
+        retrieval = "—" if row["retrievalHit"] is None else ("sí" if row["retrievalHit"] else "no")
         figure = "—" if row["figureHit"] is None else ("sí" if row["figureHit"] else "no")
         refusal = "sí" if row["refusalCorrect"] else "no"
         usage = row["usage"]
         suffix = f" ⚠ {row['error']}" if row.get("error") else ""
         lines.append(
-            f"| {row['id']}{suffix} | {expected} | {returned} | {hit} | {figure} | "
-            f"{refusal} | {usage['contextTokens']} | {usage['promptTokens']} | "
-            f"{usage['latencyMs']} ms | {'sí' if usage['llmCalled'] else 'no'} |"
+            f"| {row['id']}{suffix} | {row['split']} | {expected} | {cited} | {sent} | "
+            f"{answer} | {retrieval} | {figure} | {refusal} | {usage['contextTokens']} | "
+            f"{usage['promptGapTokens']} | {usage['latencyMs']} | "
+            f"{'sí' if usage['llmCalled'] else 'no'} |"
         )
     return "\n".join(lines)
 
@@ -357,6 +412,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.compare is not None:
         return _run_compare(args.compare.expanduser().resolve(), label)
 
+    runs = int(args.runs)
+    if runs < 1:
+        raise SystemExit("--runs debe ser >= 1")
+    if not 0.0 <= float(args.temperature) <= 2.0:
+        raise SystemExit("--temperature debe estar entre 0 y 2")
+
     golden_path = _resolve_golden(args.golden)
     if not golden_path.exists():
         raise SystemExit(f"No existe el dataset: {golden_path}")
@@ -364,15 +425,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not pdf.exists():
         raise SystemExit(f"No existe el PDF: {pdf} (define DEMO_PDF o usa --pdf)")
 
-    golden: list[dict[str, Any]] = json.loads(golden_path.read_text(encoding="utf-8"))
+    dataset: list[dict[str, Any]] = json.loads(golden_path.read_text(encoding="utf-8"))
+    if args.all:
+        golden = dataset
+    else:
+        golden = [case for case in dataset if case.get("split", "test") == "test"]
+    if not golden:
+        raise SystemExit("El split seleccionado no contiene preguntas")
     api_url = os.getenv("API_URL", "http://localhost:8000")
 
-    print(f"Dataset: {golden_path} ({len(golden)} preguntas)")
+    print(f"Dataset: {golden_path} ({len(golden)}/{len(dataset)} preguntas)")
+    print(f"Split: {'all' if args.all else 'test'} · runs={runs} · temperature={args.temperature}")
     print(f"PDF: {pdf}")
     print(f"API: {api_url}")
     print()
 
-    results: list[dict[str, Any]] = []
+    run_results: list[list[dict[str, Any]]] = []
     with httpx.Client(timeout=httpx.Timeout(REQUEST_TIMEOUT_S, connect=10.0)) as client:
         base = _resolve_base(client, api_url)
         print(f"[ingesta] API base: {base}", file=sys.stderr)
@@ -391,25 +459,42 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         print()
 
-        for index, case in enumerate(golden, start=1):
-            question = str(case["question"])
-            print(
-                f"[{index:02d}/{len(golden):02d}] {case['id']}: {question}",
-                file=sys.stderr,
-            )
-            try:
-                response = _ask(client, base, question, document_id)
-            except (httpx.HTTPError, ValueError) as exc:
-                results.append(evaluate_question(case, None, error=str(exc)))
-                print(f"  error: {exc}", file=sys.stderr)
-                continue
-            results.append(evaluate_question(case, response))
+        for run_index in range(1, runs + 1):
+            print(f"=== Run {run_index}/{runs} ===", file=sys.stderr)
+            results: list[dict[str, Any]] = []
+            for index, case in enumerate(golden, start=1):
+                question = str(case["question"])
+                print(
+                    f"[{index:02d}/{len(golden):02d}] {case['id']}: {question}",
+                    file=sys.stderr,
+                )
+                try:
+                    response = _ask(
+                        client,
+                        base,
+                        question,
+                        document_id,
+                        temperature=float(args.temperature),
+                    )
+                except (httpx.HTTPError, ValueError) as exc:
+                    results.append(evaluate_question(case, None, error=str(exc)))
+                    print(f"  error: {exc}", file=sys.stderr)
+                    continue
+                results.append(evaluate_question(case, response))
+            run_results.append(results)
 
-    metrics = summarize(results)
+    run_metrics = [summarize(results) for results in run_results]
+    metrics = median_metrics(run_metrics)
+    questions = aggregate_question_runs(run_results)
     payload = {
         "label": label,
         "generatedAt": datetime.now(UTC).isoformat(),
         "apiUrl": api_url,
+        "config": {
+            "runs": runs,
+            "temperature": float(args.temperature),
+            "split": "all" if args.all else "test",
+        },
         "document": {
             "id": document_id,
             "filename": document.get("filename"),
@@ -418,15 +503,32 @@ def main(argv: Sequence[str] | None = None) -> int:
         },
         "golden": _display_path(golden_path),
         "metrics": metrics,
-        "questions": results,
+        "questions": questions,
+        "runs": [
+            {"run": index, "metrics": summary, "questions": results}
+            for index, (summary, results) in enumerate(
+                zip(run_metrics, run_results, strict=True),
+                start=1,
+            )
+        ],
     }
     output_path = _write_result(label, payload)
 
-    print(f"## Resultado `{label}`\n")
+    print(f"## Resultado `{label}` (mediana de {runs} corridas)\n")
     print(_render_summary(metrics))
     print()
-    print("### Detalle por pregunta\n")
-    print(_render_questions(results))
+    print("### Métricas por corrida\n")
+    print(
+        _render_runs(
+            [
+                {"run": index, "metrics": summary}
+                for index, summary in enumerate(run_metrics, start=1)
+            ]
+        )
+    )
+    print()
+    print("### Detalle por pregunta (mediana/mayoría)\n")
+    print(_render_questions(questions))
     print()
     print(f"JSON: `{output_path}`")
     return 0

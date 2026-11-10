@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Collection
+from dataclasses import dataclass, replace
 
 from app.shared.chunks import BBox, Chunk, ChunkKind
 
@@ -22,6 +23,7 @@ class RetrievedChunk:
     sparse_rank: int | None = None
     dense_score: float | None = None
     sparse_score: float | None = None
+    dense_cosine: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,11 +51,20 @@ class RetrievalDebugHit:
     sparse_rank: int | None = None
     dense_score: float | None = None
     sparse_score: float | None = None
+    dense_cosine: float | None = None
+    sent: bool = False
 
 
 @dataclass(frozen=True, slots=True)
 class RetrievalDebug:
     retrieved: tuple[RetrievalDebugHit, ...]
+
+    def with_sent(self, chunk_ids: Collection[str]) -> RetrievalDebug:
+        """Return a copy marking which candidate chunks were sent to the LLM."""
+        sent_ids = set(chunk_ids)
+        return RetrievalDebug(
+            retrieved=tuple(replace(hit, sent=hit.chunk_id in sent_ids) for hit in self.retrieved)
+        )
 
 
 @dataclass(frozen=True, slots=True)

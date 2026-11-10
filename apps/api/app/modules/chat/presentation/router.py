@@ -30,5 +30,6 @@ async def ask(
         to_chat_turns(payload.history),
         payload.doc_id or None,
         conversation_id=payload.conversation_id or None,
+        temperature=payload.temperature,
     )
     return ChatResponse.from_answer(answer, include_debug=debug)

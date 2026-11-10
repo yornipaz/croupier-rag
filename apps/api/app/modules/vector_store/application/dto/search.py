@@ -23,3 +23,4 @@ class SearchHit:
     sparse_rank: int | None = None
     dense_score: float | None = None
     sparse_score: float | None = None
+    dense_cosine: float | None = None

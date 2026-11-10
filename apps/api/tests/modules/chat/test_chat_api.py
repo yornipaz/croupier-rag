@@ -44,9 +44,18 @@ class FakeAsk:
             usage=ChatUsage(
                 chunks_retrieved=2,
                 chunks_sent=2,
+                system_tokens=40,
+                history_tokens=5,
                 context_tokens=12,
+                question_tokens=4,
+                prompt_template_tokens=9,
+                prompt_estimated_tokens=70,
                 prompt_tokens=80,
                 completion_tokens=10,
+                prompt_source="provider",
+                completion_source="provider",
+                breakdown_source="estimated",
+                llm_calls=1,
                 latency_ms=42,
                 llm_called=True,
             ),
@@ -61,6 +70,7 @@ class FakeAsk:
         doc_id: str | None = None,
         *,
         conversation_id: str | None = None,
+        temperature: float | None = None,
     ) -> ChatAnswer:
         self.calls.append(
             {
@@ -68,6 +78,7 @@ class FakeAsk:
                 "history": list(history or []),
                 "doc_id": doc_id,
                 "conversation_id": conversation_id,
+                "temperature": temperature,
             }
         )
         return self.answer
@@ -103,9 +114,18 @@ def test_chat_api_returns_grounded_answer_without_debug() -> None:
     assert body["usage"] == {
         "chunksRetrieved": 2,
         "chunksSent": 2,
+        "systemTokens": 40,
+        "historyTokens": 5,
         "contextTokens": 12,
+        "questionTokens": 4,
+        "promptTemplateTokens": 9,
+        "promptEstimatedTokens": 70,
         "promptTokens": 80,
         "completionTokens": 10,
+        "promptSource": "provider",
+        "completionSource": "provider",
+        "breakdownSource": "estimated",
+        "llmCalls": 1,
         "latencyMs": 42,
         "llmCalled": True,
     }
@@ -113,7 +133,20 @@ def test_chat_api_returns_grounded_answer_without_debug() -> None:
     assert fake.calls[0]["query"] == "¿Qué voltaje usa?"
     assert fake.calls[0]["doc_id"] == "doc-1"
     assert fake.calls[0]["conversation_id"] == "conv-1"
+    assert fake.calls[0]["temperature"] is None
     assert fake.calls[0]["history"][0].content == "Háblame del A-100"
+
+
+def test_chat_api_forwards_temperature_to_the_use_case() -> None:
+    fake = FakeAsk()
+    with TestClient(_app(fake)) as client:
+        response = client.post(
+            "/chat/ask",
+            json={"query": "¿Qué voltaje usa?", "temperature": 0.0},
+        )
+
+    assert response.status_code == 200
+    assert fake.calls[0]["temperature"] == 0.0
 
 
 def test_chat_api_includes_debug_with_query_flag() -> None:
@@ -125,3 +158,6 @@ def test_chat_api_includes_debug_with_query_flag() -> None:
     debug = response.json()["debug"]
     assert debug["retrieved"][0]["chunkId"] == "chunk-1"
     assert debug["retrieved"][0]["rrfScore"] == 0.02
+    assert debug["retrieved"][0]["fusedScore"] == 0.02
+    assert debug["retrieved"][0]["denseCosine"] == 0.8
+    assert debug["retrieved"][0]["sent"] is False

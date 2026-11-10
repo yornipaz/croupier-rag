@@ -2,73 +2,101 @@
   {
     "id": "text-01",
     "question": "¿En qué lenguaje de programación está desarrollada la aplicación de descarga de pedidos?",
-    "expected_pages": [3],
+    "expected_pages": [
+      3
+    ],
     "needs_figure": false,
     "should_refuse": false,
+    "split": "calibration",
     "notes": "La página 3 indica que la aplicación está desarrollada en Node.js."
   },
   {
     "id": "text-02",
     "question": "¿Qué cliente VPN recomienda Eroski para conectarse a su servidor?",
-    "expected_pages": [3],
+    "expected_pages": [
+      3
+    ],
     "needs_figure": false,
     "should_refuse": false,
+    "split": "test",
     "notes": "La página 3 menciona GlobalPortect como cliente VPN recomendado."
   },
   {
     "id": "text-03",
     "question": "¿Cada cuántos segundos comprueba la aplicación si hay nuevos archivos en el servidor?",
-    "expected_pages": [4],
+    "expected_pages": [
+      4
+    ],
     "needs_figure": false,
     "should_refuse": false,
+    "split": "calibration",
     "notes": "La página 4 fija el intervalo por defecto en 60 segundos."
   },
   {
     "id": "text-04",
     "question": "¿Qué ruta se utiliza para iniciar la sesión de descarga de archivos?",
-    "expected_pages": [4],
+    "expected_pages": [
+      4
+    ],
     "needs_figure": false,
     "should_refuse": false,
+    "split": "test",
     "notes": "La página 4 explica que la sesión se inicia con la ruta /start."
   },
   {
     "id": "text-05",
     "question": "¿Para qué sirve la carpeta /out del servidor FTP de Eroski?",
-    "expected_pages": [5],
+    "expected_pages": [
+      5
+    ],
     "needs_figure": false,
     "should_refuse": false,
+    "split": "calibration",
     "notes": "La página 5 describe /out como registro de archivos ya procesados."
   },
   {
     "id": "text-06",
     "question": "¿Qué lenguaje y framework se utilizan en la aplicación web de gestión de pedidos?",
-    "expected_pages": [8],
+    "expected_pages": [
+      8
+    ],
     "needs_figure": false,
     "should_refuse": false,
+    "split": "test",
     "notes": "La página 8 indica PHP con el framework Laravel."
   },
   {
     "id": "fig-01",
     "question": "¿Qué representa el indicador rojo que aparece a la derecha del nombre de cada tienda en la pantalla principal?",
-    "expected_pages": [9],
+    "expected_pages": [
+      9
+    ],
     "needs_figure": true,
     "should_refuse": false,
+    "split": "calibration",
     "notes": "La captura de la página 9 muestra el indicador de pedidos entregados sobre el total."
   },
   {
     "id": "fig-02",
     "question": "¿Qué mensaje de confirmación aparece al cambiar el estado de un pedido?",
-    "expected_pages": [11],
+    "expected_pages": [
+      11
+    ],
     "needs_figure": true,
     "should_refuse": false,
+    "split": "test",
     "notes": "La captura de la página 11 muestra el diálogo '¿Está seguro de cambiar el estado de pedido a XXXXX?'."
   },
   {
     "id": "fig-03",
     "question": "¿Qué datos se solicitan en la ventana para añadir un nuevo usuario?",
-    "expected_pages": [16, 17],
+    "expected_pages": [
+      16,
+      17
+    ],
     "needs_figure": true,
     "should_refuse": false,
+    "split": "calibration",
     "notes": "Las capturas de las páginas 16 y 17 muestran el formulario de alta y sus campos."
   },
   {
@@ -77,6 +105,7 @@
     "expected_pages": [],
     "needs_figure": false,
     "should_refuse": true,
+    "split": "test",
     "notes": "El PDF no menciona SAP, ERP ni integraciones con otros sistemas."
   },
   {
@@ -85,6 +114,7 @@
     "expected_pages": [],
     "needs_figure": false,
     "should_refuse": true,
+    "split": "calibration",
     "notes": "El PDF no contiene precios, licencias ni condiciones de soporte."
   },
   {
@@ -93,6 +123,7 @@
     "expected_pages": [],
     "needs_figure": false,
     "should_refuse": true,
+    "split": "test",
     "notes": "El PDF no menciona Shopify, WooCommerce ni sincronización con otras plataformas."
   }
 ]

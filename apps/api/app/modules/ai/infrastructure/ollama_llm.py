@@ -23,6 +23,8 @@ class OllamaLLM:
         prompt: str,
         system: str | None = None,
         response_schema: ResponseSchema | None = None,
+        *,
+        temperature: float | None = None,
     ) -> LLMResult:
         messages: list[dict[str, str]] = []
         if system:
@@ -34,6 +36,8 @@ class OllamaLLM:
             "messages": messages,
             "stream": False,
         }
+        if temperature is not None:
+            body["options"] = {"temperature": temperature}
         if response_schema is not None:
             body["format"] = to_json_schema(response_schema)
 

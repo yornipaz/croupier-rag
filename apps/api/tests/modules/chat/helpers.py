@@ -69,6 +69,7 @@ def retrieval_result(top_score: float = 0.9) -> RetrievalResult:
                 kind="text",
                 rrf_score=0.02,
                 relevance_score=0.8,
+                dense_cosine=0.8,
             ),
             RetrievalDebugHit(
                 chunk_id="chunk-2",
@@ -78,6 +79,7 @@ def retrieval_result(top_score: float = 0.9) -> RetrievalResult:
                 kind="text",
                 rrf_score=0.03,
                 relevance_score=top_score,
+                dense_cosine=0.95,
             ),
         )
     )
