@@ -48,6 +48,12 @@ el reporte usa la mediana de las métricas; el JSON conserva cada corrida.
 `LABEL=dynamic` envía `X-Selection-Mode: dynamic` (solo el API con `ENV=dev|eval`
 lo acepta); el resto usa `static`.
 
+Cada JSON de `eval/results/` incluye `schemaVersion`, `label`, `createdAt`,
+`gitCommit`, `split`, `datasetHash`, `nQuestions`, `nRuns`, `selectionMode` y la
+configuración de evaluación relevante. `make eval-compare` falla sin imprimir la
+tabla si difieren `schemaVersion`, `datasetHash`, `split` o `nQuestions`; los
+campos ausentes en resultados antiguos se avisan y se muestran como `n/d`.
+
 ## Diagnósticos
 
 ```bash

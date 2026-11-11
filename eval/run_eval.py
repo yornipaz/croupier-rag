@@ -9,16 +9,18 @@ Only ``httpx`` and the standard library are required. The script:
 4. Writes ``eval/results/<label>.json`` and prints markdown tables.
 
 Examples:
-    python eval/run_eval.py --label baseline-v2 --ensure-doc
-    python eval/run_eval.py --compare eval/results/baseline-v2.json
+    python eval/run_eval.py --label baseline-v3 --ensure-doc
+    python eval/run_eval.py --compare eval/results/baseline-v3.json
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 from collections.abc import Mapping, Sequence
@@ -32,6 +34,11 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from eval.compatibility import (  # noqa: E402
+    SCHEMA_VERSION,
+    check_compatibility,
+    format_meta,
+)
 from eval.metrics import (  # noqa: E402
     RATE_METRICS,
     aggregate_question_runs,
@@ -75,6 +82,76 @@ METRIC_LABELS = {
 
 JOB_TIMEOUT_S = 900.0
 REQUEST_TIMEOUT_S = 180.0
+
+
+def _git_commit() -> str:
+    override = os.getenv("GIT_COMMIT", "").strip()
+    if override:
+        return override
+    try:
+        completed = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            check=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+    return completed.stdout.strip() or "unknown"
+
+
+def _dataset_hash(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)))
+    except ValueError:
+        return default
+
+
+def _env_float(name: str, default: float) -> float:
+    try:
+        return float(os.getenv(name, str(default)))
+    except ValueError:
+        return default
+
+
+def _evaluation_config(args: argparse.Namespace, runs: int) -> dict[str, Any]:
+    return {
+        "selectionMode": _selection_mode(args),
+        "contextFormat": os.getenv("CONTEXT_FORMAT", "verbose"),
+        "candidatePool": _env_int("CANDIDATE_POOL", 20),
+        "minK": _env_int("MIN_K", 3),
+        "maxK": _env_int("MAX_K", 6),
+        "relRatio": _env_float("REL_RATIO", 0.55),
+        "gapRatio": _env_float("GAP_RATIO", 0.35),
+        "mmrLambda": _env_float("MMR_LAMBDA", 0.7),
+        "mmrDuplicateThreshold": _env_float("MMR_DUPLICATE_THRESHOLD", 0.95),
+        "contextTokenBudget": _env_int("CONTEXT_TOKEN_BUDGET", 1800),
+        "tokenEstimateFactor": _env_float("TOKEN_ESTIMATE_FACTOR", 1.32),
+        "gateSafetyMargin": _env_float("GATE_SAFETY_MARGIN", 0.05),
+        "retrievalTopK": _env_int("RETRIEVAL_TOP_K", 8),
+        "embeddingModel": os.getenv("EMBEDDING_MODEL", ""),
+        "llmModel": os.getenv("LLM_MODEL", ""),
+        "temperature": float(args.temperature),
+        "runs": runs,
+    }
+
+
+def _selection_mode(args: argparse.Namespace) -> str:
+    return str(args.selection_mode or os.getenv("SELECTION_MODE", "static"))
+
+
+def _reset_result_file(label: str) -> Path:
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    path = RESULTS_DIR / f"{label}.json"
+    if path.exists():
+        path.unlink()
+    return path
 
 
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -357,6 +434,24 @@ def _render_questions(results: Sequence[Mapping[str, Any]]) -> str:
     return "\n".join(lines)
 
 
+def _render_compat_meta(
+    before: Mapping[str, Any],
+    after: Mapping[str, Any],
+    before_label: str,
+    after_label: str,
+) -> str:
+    lines = [
+        f"| Compatibilidad | {before_label} | {after_label} |",
+        "| --- | --- | --- |",
+    ]
+    for field_name in ("schemaVersion", "datasetHash", "split", "nQuestions"):
+        lines.append(
+            f"| {field_name} | {format_meta(before.get(field_name))} | "
+            f"{format_meta(after.get(field_name))} |"
+        )
+    return "\n".join(lines)
+
+
 def _render_comparison(
     before: Mapping[str, float],
     after: Mapping[str, float],
@@ -408,7 +503,23 @@ def _run_compare(compare_path: Path, label: str) -> int:
     after = json.loads(current_path.read_text(encoding="utf-8"))
     before_label = str(before.get("label") or compare_path.stem)
     after_label = str(after.get("label") or label)
+
+    report = check_compatibility(before, after)
+    for side, fields in report.missing.items():
+        if not fields:
+            continue
+        label_side = before_label if side == "before" else after_label
+        print(
+            f"Advertencia: faltan campos en {label_side}: {', '.join(fields)} "
+            "(se muestran como n/d, nunca como 0).",
+            file=sys.stderr,
+        )
+    if not report.ok:
+        raise SystemExit(report.error_message())
+
     print(f"## Comparación: {before_label} → {after_label}\n")
+    print(_render_compat_meta(before, after, before_label, after_label))
+    print()
     print(_render_comparison(before["metrics"], after["metrics"], before_label, after_label))
     return 0
 
@@ -434,6 +545,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise SystemExit(f"No existe el PDF: {pdf} (define DEMO_PDF o usa --pdf)")
 
     dataset: list[dict[str, Any]] = json.loads(golden_path.read_text(encoding="utf-8"))
+    split_name = "all" if args.all else "test"
     if args.all:
         golden = dataset
     else:
@@ -441,6 +553,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not golden:
         raise SystemExit("El split seleccionado no contiene preguntas")
     api_url = os.getenv("API_URL", "http://localhost:8000")
+    _reset_result_file(label)
+    dataset_hash = _dataset_hash(golden_path)
+    git_commit = _git_commit()
+    evaluation_config = _evaluation_config(args, runs)
 
     print(f"Dataset: {golden_path} ({len(golden)}/{len(dataset)} preguntas)")
     print(f"Split: {'all' if args.all else 'test'} · runs={runs} · temperature={args.temperature}")
@@ -496,15 +612,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     metrics = median_metrics(run_metrics)
     questions = aggregate_question_runs(run_results)
     payload = {
+        "schemaVersion": SCHEMA_VERSION,
         "label": label,
-        "generatedAt": datetime.now(UTC).isoformat(),
+        "createdAt": datetime.now(UTC).isoformat(),
+        "gitCommit": git_commit,
+        "split": split_name,
+        "datasetHash": dataset_hash,
+        "nQuestions": len(golden),
+        "nRuns": runs,
+        "selectionMode": _selection_mode(args),
         "apiUrl": api_url,
-        "config": {
-            "runs": runs,
-            "temperature": float(args.temperature),
-            "split": "all" if args.all else "test",
-            "selectionMode": args.selection_mode,
-        },
+        "config": evaluation_config,
         "document": {
             "id": document_id,
             "filename": document.get("filename"),
@@ -541,6 +659,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(_render_questions(questions))
     print()
     print(f"JSON: `{output_path}`")
+    print(f"createdAt: {payload['createdAt']}")
+    print(f"gitCommit: {payload['gitCommit']}")
     return 0
 
 
